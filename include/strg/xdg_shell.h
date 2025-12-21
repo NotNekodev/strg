@@ -43,11 +43,16 @@ struct strg_toplevel {
     bool decorations_applied;
 
     struct wlr_scene_rect *titlebar;
-
+    struct wlr_scene_buffer *title_text;
+    struct wlr_scene_buffer *close_button_buffer;
+    struct wlr_scene_buffer *maximize_button_buffer;
+    struct wlr_scene_buffer *minimize_button_buffer;
     struct wlr_scene_rect *border_left;
     struct wlr_scene_rect *border_right;
     struct wlr_scene_rect *border_bottom;
 
+    bool is_maximized;
+    struct wlr_box pre_maximize_geometry;
 };
 
 struct strg_popup {

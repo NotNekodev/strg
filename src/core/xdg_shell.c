@@ -74,10 +74,8 @@ void xdg_toplevel_map(struct wl_listener *listener, void *data) {
 
 void xdg_toplevel_unmap(struct wl_listener *listener, void *data) {
 	(void)data;
-	/* Called when the surface is unmapped, and should no longer be shown. */
 	struct strg_toplevel *toplevel = wl_container_of(listener, toplevel, unmap);
 
-	/* Reset the cursor mode if the grabbed toplevel was unmapped. */
 	if (toplevel == toplevel->server->grabbed_toplevel) {
 		reset_cursor_mode(toplevel->server);
 	}
@@ -87,22 +85,22 @@ void xdg_toplevel_unmap(struct wl_listener *listener, void *data) {
 
 void xdg_toplevel_commit(struct wl_listener *listener, void *data) {
 	(void)data;
-	/* Called when a new surface state is committed. */
 	struct strg_toplevel *toplevel = wl_container_of(listener, toplevel, commit);
 
 	if (toplevel->xdg_toplevel->base->initial_commit) {
-		/* When an xdg_surface performs an initial commit, the compositor must
-		 * reply with a configure so the client can map the surface. strg
-		 * configures the xdg_toplevel with 0,0 size to let the client pick the
-		 * dimensions itself. */
 		wlr_xdg_toplevel_set_size(toplevel->xdg_toplevel, 0, 0);
+	}
+
+	if (toplevel->type == STRG_DECORATION_SERVER && toplevel->decorations_applied) {
+		update_title(toplevel);
 	}
 }
 
 void xdg_toplevel_destroy(struct wl_listener *listener, void *data) {
 	(void)data;
-	/* Called when the xdg_toplevel is destroyed. */
 	struct strg_toplevel *toplevel = wl_container_of(listener, toplevel, destroy);
+
+	destroy_decorations(toplevel);
 
 	wl_list_remove(&toplevel->map.link);
 	wl_list_remove(&toplevel->unmap.link);
@@ -142,6 +140,7 @@ void xdg_decoration_request_mode_handler(struct wl_listener *listener, void *dat
 }
 
 void xdg_new_decoration_handler(struct wl_listener *listener, void *data) {
+	(void)listener;
 	struct wlr_xdg_toplevel_decoration_v1 *decoration = data;
 
 	struct strg_toplevel *toplevel =
@@ -161,9 +160,6 @@ void xdg_new_decoration_handler(struct wl_listener *listener, void *data) {
 }
 
 void begin_interactive(struct strg_toplevel *toplevel, enum strg_cursor_mode mode, uint32_t edges) {
-	/* This function sets up an interactive move or resize operation, where the
-	 * compositor stops propegating pointer events to clients and instead
-	 * consumes them itself, to move or resize windows. */
 	struct strg_server *server = toplevel->server;
 
 	server->grabbed_toplevel = toplevel;
@@ -192,21 +188,11 @@ void begin_interactive(struct strg_toplevel *toplevel, enum strg_cursor_mode mod
 
 void xdg_toplevel_request_move(struct wl_listener *listener, void *data) {
 	(void)data;
-	/* This event is raised when a client would like to begin an interactive
-	 * move, typically because the user clicked on their client-side
-	 * decorations. Note that a more sophisticated compositor should check the
-	 * provided serial against a list of button press serials sent to this
-	 * client, to prevent the client from requesting this whenever they want. */
 	struct strg_toplevel *toplevel = wl_container_of(listener, toplevel, request_move);
 	begin_interactive(toplevel, STRG_CURSOR_MOVE, 0);
 }
 
 void xdg_toplevel_request_resize(struct wl_listener *listener, void *data) {
-	/* This event is raised when a client would like to begin an interactive
-	 * resize, typically because the user clicked on their client-side
-	 * decorations. Note that a more sophisticated compositor should check the
-	 * provided serial against a list of button press serials sent to this
-	 * client, to prevent the client from requesting this whenever they want. */
 	struct wlr_xdg_toplevel_resize_event *event = data;
 	struct strg_toplevel *toplevel = wl_container_of(listener, toplevel, request_resize);
 	begin_interactive(toplevel, STRG_CURSOR_RESIZE, event->edges);
@@ -214,13 +200,7 @@ void xdg_toplevel_request_resize(struct wl_listener *listener, void *data) {
 
 void xdg_toplevel_request_maximize(struct wl_listener *listener, void *data) {
 	(void)data;
-	/* This event is raised when a client would like to maximize itself,
-	 * typically because the user clicked on the maximize button on client-side
-	 * decorations. strg doesn't support maximization, but to conform to
-	 * xdg-shell protocol we still must send a configure.
-	 * wlr_xdg_surface_schedule_configure() is used to send an empty reply.
-	 * However, if the request was sent before an initial commit, we don't do
-	 * anything and let the client finish the initial surface setup. */
+
 	struct strg_toplevel *toplevel =
 		wl_container_of(listener, toplevel, request_maximize);
 	if (toplevel->xdg_toplevel->base->initialized) {
@@ -277,6 +257,18 @@ void xdg_toplevel_create(struct wl_listener *listener, void *data) {
 	toplevel->has_xdg_decoration = false;
 	toplevel->decoration_pref = STRG_DECORATION_PREF_UNKNOWN;
 	toplevel->decorations_applied = false;
+
+	toplevel->title_text = NULL;
+	toplevel->close_button_buffer = NULL;
+	toplevel->maximize_button_buffer = NULL;
+	toplevel->minimize_button_buffer = NULL;
+	toplevel->titlebar = NULL;
+	toplevel->border_left = NULL;
+	toplevel->border_right = NULL;
+	toplevel->border_bottom = NULL;
+
+	toplevel->is_maximized = false;
+	toplevel->pre_maximize_geometry = (struct wlr_box){0};
 }
 
 void xdg_popup_commit(struct wl_listener *listener, void *data) {
@@ -285,11 +277,6 @@ void xdg_popup_commit(struct wl_listener *listener, void *data) {
 	struct strg_popup *popup = wl_container_of(listener, popup, commit);
 
 	if (popup->xdg_popup->base->initial_commit) {
-		/* When an xdg_surface performs an initial commit, the compositor must
-		 * reply with a configure so the client can map the surface.
-		 * strg sends an empty configure. A more sophisticated compositor
-		 * might change an xdg_popup's geometry to ensure it's not positioned
-		 * off-screen, for example. */
 		wlr_xdg_surface_schedule_configure(popup->xdg_popup->base);
 	}
 }

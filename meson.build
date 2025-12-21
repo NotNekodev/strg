@@ -13,6 +13,9 @@ wlroots = dependency('wlroots-0.19')
 xkbcommon = dependency('xkbcommon')
 wayland_dep = dependency('wayland-server')
 wayland_scanner = find_program('wayland-scanner')
+cairo = dependency('cairo')
+pango = dependency('pango')
+pangocairo = dependency('pangocairo')
 
 
 inc = include_directories('include')
@@ -47,7 +50,10 @@ executable(
     dependencies : [
         wlroots,
         wayland_dep,
-        xkbcommon
+        xkbcommon,
+        cairo,
+        pango,
+        pangocairo,
     ],
     install : true
 )
