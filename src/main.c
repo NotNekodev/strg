@@ -90,7 +90,7 @@ int main(int argc, char *argv[]) {
 	wlr_data_device_manager_create(server.wl_display);
 
 	server.xdg_decoration_manager = wlr_xdg_decoration_manager_v1_create(server.wl_display);
-	server.new_xdg_decoration.notify = handle_new_xdg_decoration;
+	server.new_xdg_decoration.notify = xdg_new_decoration_handler;
 	wl_signal_add(
 		&server.xdg_decoration_manager->events.new_toplevel_decoration,
 		&server.new_xdg_decoration
@@ -107,9 +107,9 @@ int main(int argc, char *argv[]) {
 
 	wl_list_init(&server.toplevels);
 	server.xdg_shell = wlr_xdg_shell_create(server.wl_display, 3);
-	server.new_xdg_toplevel.notify = server_new_xdg_toplevel;
+	server.new_xdg_toplevel.notify = xdg_toplevel_create;
 	wl_signal_add(&server.xdg_shell->events.new_toplevel, &server.new_xdg_toplevel);
-	server.new_xdg_popup.notify = server_new_xdg_popup;
+	server.new_xdg_popup.notify = xdg_popup_create;
 	wl_signal_add(&server.xdg_shell->events.new_popup, &server.new_xdg_popup);
 
 	server.cursor = wlr_cursor_create();

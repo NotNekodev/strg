@@ -14,6 +14,14 @@ enum strg_decoration_pref {
     STRG_DECORATION_PREF_SERVER,
 };
 
+struct strg_xdg_decoration {
+    struct wlr_xdg_toplevel_decoration_v1 *decoration;
+    struct wl_listener surface_commit;
+    struct wl_listener request_mode;
+    struct wl_listener destroy;
+
+    struct strg_toplevel *toplevel;
+};
 
 struct strg_toplevel {
     struct wl_list link;
@@ -56,12 +64,12 @@ void xdg_toplevel_request_move(struct wl_listener *listener, void *data);
 void xdg_toplevel_request_resize(struct wl_listener *listener, void *data);
 void xdg_toplevel_request_maximize(struct wl_listener *listener, void *data);
 void xdg_toplevel_request_fullscreen(struct wl_listener *listener, void *data);
-void server_new_xdg_toplevel(struct wl_listener *listener, void *data);
+void xdg_toplevel_create(struct wl_listener *listener, void *data);
 void xdg_popup_commit(struct wl_listener *listener, void *data);
 void xdg_popup_destroy(struct wl_listener *listener, void *data);
-void server_new_xdg_popup(struct wl_listener *listener, void *data);
+void xdg_popup_create(struct wl_listener *listener, void *data);
 void begin_interactive(struct strg_toplevel *toplevel, enum strg_cursor_mode mode, uint32_t edges);
-void handle_xdg_decoration_request_mode(struct wl_listener *listener, void *data);
-void handle_new_xdg_decoration(struct wl_listener *listener, void *data);
+void xdg_decoration_request_mode_handler(struct wl_listener *listener, void *data);
+void xdg_new_decoration_handler(struct wl_listener *listener, void *data);
 
 #endif //STRG_XDG_SHELL_H
