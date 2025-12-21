@@ -29,9 +29,11 @@
 struct strg_server server = {0};
 
 void signal_handler(int signum, siginfo_t *info, void* ucontext) {
+	(void)info;
 	(void)ucontext;
 	fprintf(stderr, "received signal %d, terminating\n", signum);
 	wl_display_terminate(server.wl_display);
+	exit(EXIT_FAILURE);
 }
 
 int main(int argc, char *argv[]) {

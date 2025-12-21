@@ -5,6 +5,7 @@
 #include <wlr/types/wlr_data_device.h>
 #include <wlr/util/edges.h>
 #include <stdio.h>
+#include <linux/input-event-codes.h>
 
 void focus_toplevel(struct strg_toplevel *toplevel) {
 	if (toplevel == NULL) {
@@ -114,7 +115,7 @@ void keyboard_handle_key(struct wl_listener *listener, void *data) {
 
 	bool handled = false;
 	uint32_t modifiers = wlr_keyboard_get_modifiers(keyboard->wlr_keyboard);
-	if ((modifiers & WLR_MODIFIER_LOGO) &&
+	if ((modifiers & WLR_MODIFIER_ALT) &&
 			event->state == WL_KEYBOARD_KEY_STATE_PRESSED) {
 		/* If alt is held down and this button was _pressed_, we attempt to
 		 * process it as a compositor keybinding. */
@@ -425,26 +426,46 @@ void server_cursor_motion_absolute(
 }
 
 void server_cursor_button(struct wl_listener *listener, void *data) {
-	/* This event is forwarded by the cursor when a pointer emits a button
-	 * event. */
 	struct strg_server *server =
 		wl_container_of(listener, server, cursor_button);
 	struct wlr_pointer_button_event *event = data;
-	/* Notify the client with pointer focus that a button press has occurred */
+
 	wlr_seat_pointer_notify_button(server->seat,
-			event->time_msec, event->button, event->state);
+								   event->time_msec,
+								   event->button,
+								   event->state);
+
+	// If button released, reset any grab
 	if (event->state == WL_POINTER_BUTTON_STATE_RELEASED) {
-		/* If you released any buttons, we exit interactive move/resize mode. */
 		reset_cursor_mode(server);
-	} else {
-		/* Focus that client if the button was _pressed_ */
+		return;
+	}
+
+	// Only start move on left button press + Alt
+	uint32_t modifiers = wlr_keyboard_get_modifiers(server->seat->keyboard_state.keyboard);
+	if (event->button == BTN_LEFT && (modifiers & WLR_MODIFIER_ALT)) {
 		double sx, sy;
 		struct wlr_surface *surface = NULL;
 		struct strg_toplevel *toplevel = desktop_toplevel_at(server,
-				server->cursor->x, server->cursor->y, &surface, &sx, &sy);
+															  server->cursor->x,
+															  server->cursor->y,
+															  &surface, &sx, &sy);
+		if (!toplevel) return;
+
+		// Focus the window
 		focus_toplevel(toplevel);
+
+		// Set move grab
+		server->cursor_mode = STRG_CURSOR_MOVE;
+		server->grabbed_toplevel = toplevel;
+
+		int node_y = toplevel->scene_tree->node.y;
+		int node_x = toplevel->scene_tree->node.x;
+		server->grab_x = server->cursor->x - node_x;
+		server->grab_y = server->cursor->y - node_y;
 	}
 }
+
 
 void server_cursor_axis(struct wl_listener *listener, void *data) {
 	/* This event is forwarded by the cursor when a pointer emits an axis event,

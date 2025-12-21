@@ -3,6 +3,7 @@
 #include <strg/xdg_shell.h>
 #include <wlr/util/edges.h>
 
+#include "strg/decorations.h"
 #include "strg/input.h"
 
 struct strg_xdg_decoration {
@@ -10,6 +11,8 @@ struct strg_xdg_decoration {
 	struct wl_listener surface_commit;
 	struct wl_listener request_mode;
 	struct wl_listener destroy;
+
+	struct strg_toplevel *toplevel;
 };
 
 
@@ -25,13 +28,14 @@ static void decoration_handle_surface_commit(struct wl_listener *listener, void 
 		return;
 	}
 
+	if (((struct strg_toplevel *)xdg_surface->data)->type == STRG_DECORATION_SERVER) {
+		create_decorations((struct strg_toplevel *)xdg_surface->data);
+	}
+
 	wlr_xdg_toplevel_decoration_v1_set_mode(
 		dec->decoration,
 		WLR_XDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE
 	);
-
-	/* One-shot: remove listener */
-	wl_list_remove(&dec->surface_commit.link);
 }
 
 static void decoration_handle_destroy(struct wl_listener *listener, void *data) {
@@ -57,6 +61,9 @@ void xdg_toplevel_map(struct wl_listener *listener, void *data) {
 
 	wl_list_insert(&toplevel->server->toplevels, &toplevel->link);
 
+	wlr_scene_node_set_position(&toplevel->scene_tree->node, 500, 500);
+
+	create_decorations(toplevel);
 	focus_toplevel(toplevel);
 }
 
@@ -105,12 +112,21 @@ void xdg_toplevel_destroy(struct wl_listener *listener, void *data) {
 }
 
 void handle_xdg_decoration_request_mode(struct wl_listener *listener, void *data) {
-	(void)data;
 	struct strg_xdg_decoration *dec =
 		wl_container_of(listener, dec, request_mode);
 
+	struct strg_toplevel *toplevel = dec->toplevel;
+
 	if (!dec->decoration->toplevel->base->initialized) {
 		return;
+	}
+
+	if (dec->decoration->requested_mode == WLR_XDG_TOPLEVEL_DECORATION_V1_MODE_CLIENT_SIDE) {
+		toplevel->type = STRG_DECORATION_CLIENT;
+	} else if (dec->decoration->requested_mode == WLR_XDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE) {
+		toplevel->type = STRG_DECORATION_SERVER;
+	} else {
+		toplevel->type = STRG_DECORATION_SERVER;
 	}
 
 	wlr_xdg_toplevel_decoration_v1_set_mode(
@@ -120,11 +136,12 @@ void handle_xdg_decoration_request_mode(struct wl_listener *listener, void *data
 }
 
 void handle_new_xdg_decoration(struct wl_listener *listener, void *data) {
-	(void)listener;
+	struct strg_server *server = wl_container_of(listener, server, new_xdg_decoration);
 	struct wlr_xdg_toplevel_decoration_v1 *decoration = data;
 
 	struct strg_xdg_decoration *dec = calloc(1, sizeof(*dec));
 	dec->decoration = decoration;
+	dec->toplevel = decoration->toplevel->base->data;
 
 	/* Wait until the surface is initialized */
 	dec->surface_commit.notify = decoration_handle_surface_commit;
@@ -256,6 +273,8 @@ void server_new_xdg_toplevel(struct wl_listener *listener, void *data) {
 	wl_signal_add(&xdg_toplevel->events.request_maximize, &toplevel->request_maximize);
 	toplevel->request_fullscreen.notify = xdg_toplevel_request_fullscreen;
 	wl_signal_add(&xdg_toplevel->events.request_fullscreen, &toplevel->request_fullscreen);
+
+	xdg_toplevel->base->data = toplevel;
 }
 
 void xdg_popup_commit(struct wl_listener *listener, void *data) {

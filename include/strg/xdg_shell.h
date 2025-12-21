@@ -3,6 +3,11 @@
 
 #include <strg/strg.h>
 
+enum strg_decoration_type {
+    STRG_DECORATION_CLIENT,
+    STRG_DECORATION_SERVER,
+};
+
 struct strg_toplevel {
     struct wl_list link;
     struct strg_server *server;
@@ -16,6 +21,14 @@ struct strg_toplevel {
     struct wl_listener request_resize;
     struct wl_listener request_maximize;
     struct wl_listener request_fullscreen;
+
+    enum strg_decoration_type type;
+
+    struct wlr_scene_rect *titlebar;
+
+    struct wlr_scene_rect *border_left;
+    struct wlr_scene_rect *border_right;
+    struct wlr_scene_rect *border_bottom;
 };
 
 struct strg_popup {
