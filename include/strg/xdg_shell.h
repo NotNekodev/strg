@@ -8,6 +8,13 @@ enum strg_decoration_type {
     STRG_DECORATION_SERVER,
 };
 
+enum strg_decoration_pref {
+    STRG_DECORATION_PREF_UNKNOWN,
+    STRG_DECORATION_PREF_CLIENT,
+    STRG_DECORATION_PREF_SERVER,
+};
+
+
 struct strg_toplevel {
     struct wl_list link;
     struct strg_server *server;
@@ -23,12 +30,16 @@ struct strg_toplevel {
     struct wl_listener request_fullscreen;
 
     enum strg_decoration_type type;
+    bool has_xdg_decoration;
+    enum strg_decoration_pref decoration_pref;
+    bool decorations_applied;
 
     struct wlr_scene_rect *titlebar;
 
     struct wlr_scene_rect *border_left;
     struct wlr_scene_rect *border_right;
     struct wlr_scene_rect *border_bottom;
+
 };
 
 struct strg_popup {

@@ -15,8 +15,7 @@ struct strg_xdg_decoration {
 	struct strg_toplevel *toplevel;
 };
 
-
-static void decoration_handle_surface_commit(struct wl_listener *listener, void *data) {
+void decoration_handle_surface_commit(struct wl_listener *listener, void *data) {
 	(void)data;
 	struct strg_xdg_decoration *dec =
 		wl_container_of(listener, dec, surface_commit);
@@ -28,14 +27,14 @@ static void decoration_handle_surface_commit(struct wl_listener *listener, void 
 		return;
 	}
 
-	if (((struct strg_toplevel *)xdg_surface->data)->type == STRG_DECORATION_SERVER) {
-		create_decorations((struct strg_toplevel *)xdg_surface->data);
-	}
+	struct strg_toplevel *toplevel = xdg_surface->data;
 
-	wlr_xdg_toplevel_decoration_v1_set_mode(
-		dec->decoration,
-		WLR_XDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE
-	);
+	if (dec->decoration->current.mode == WLR_XDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE) {
+		toplevel->type = STRG_DECORATION_SERVER;
+		create_decorations(toplevel);
+	} else {
+		toplevel->type = STRG_DECORATION_CLIENT;
+	}
 }
 
 static void decoration_handle_destroy(struct wl_listener *listener, void *data) {
@@ -53,19 +52,35 @@ static void decoration_handle_destroy(struct wl_listener *listener, void *data) 
 	free(dec);
 }
 
-
 void xdg_toplevel_map(struct wl_listener *listener, void *data) {
 	(void)data;
-	/* Called when the surface is mapped, or ready to display on-screen. */
-	struct strg_toplevel *toplevel = wl_container_of(listener, toplevel, map);
+	struct strg_toplevel *toplevel =
+		wl_container_of(listener, toplevel, map);
 
 	wl_list_insert(&toplevel->server->toplevels, &toplevel->link);
 
-	wlr_scene_node_set_position(&toplevel->scene_tree->node, 500, 500);
+	wlr_scene_node_set_position(
+		&toplevel->scene_tree->node, 500, 500
+	);
 
+	if (!toplevel->has_xdg_decoration) {
+		toplevel->type = STRG_DECORATION_CLIENT;
+		goto done;
+	}
+
+	if (toplevel->decoration_pref == STRG_DECORATION_PREF_CLIENT) {
+		toplevel->type = STRG_DECORATION_CLIENT;
+		goto done;
+	}
+
+	toplevel->type = STRG_DECORATION_SERVER;
 	create_decorations(toplevel);
-	focus_toplevel(toplevel);
+	toplevel->decorations_applied = true;
+
+	done:
+		focus_toplevel(toplevel);
 }
+
 
 void xdg_toplevel_unmap(struct wl_listener *listener, void *data) {
 	(void)data;
@@ -112,53 +127,47 @@ void xdg_toplevel_destroy(struct wl_listener *listener, void *data) {
 }
 
 void handle_xdg_decoration_request_mode(struct wl_listener *listener, void *data) {
+	(void)data;
 	struct strg_xdg_decoration *dec =
 		wl_container_of(listener, dec, request_mode);
 
 	struct strg_toplevel *toplevel = dec->toplevel;
+	struct wlr_xdg_toplevel_decoration_v1 *wlr_dec = dec->decoration;
 
-	if (!dec->decoration->toplevel->base->initialized) {
+	if (wlr_dec->requested_mode ==
+		WLR_XDG_TOPLEVEL_DECORATION_V1_MODE_CLIENT_SIDE) {
+		toplevel->decoration_pref = STRG_DECORATION_PREF_CLIENT;
+		} else {
+			toplevel->decoration_pref = STRG_DECORATION_PREF_SERVER;
+		}
+
+	if (!wlr_dec->toplevel->base->initialized) {
 		return;
 	}
 
-	if (dec->decoration->requested_mode == WLR_XDG_TOPLEVEL_DECORATION_V1_MODE_CLIENT_SIDE) {
-		toplevel->type = STRG_DECORATION_CLIENT;
-	} else if (dec->decoration->requested_mode == WLR_XDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE) {
-		toplevel->type = STRG_DECORATION_SERVER;
-	} else {
-		toplevel->type = STRG_DECORATION_SERVER;
-	}
-
 	wlr_xdg_toplevel_decoration_v1_set_mode(
-		dec->decoration,
-		WLR_XDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE
+		wlr_dec,
+		wlr_dec->requested_mode
 	);
 }
 
 void handle_new_xdg_decoration(struct wl_listener *listener, void *data) {
-	struct strg_server *server = wl_container_of(listener, server, new_xdg_decoration);
 	struct wlr_xdg_toplevel_decoration_v1 *decoration = data;
+
+	struct strg_toplevel *toplevel =
+		decoration->toplevel->base->data;
 
 	struct strg_xdg_decoration *dec = calloc(1, sizeof(*dec));
 	dec->decoration = decoration;
-	dec->toplevel = decoration->toplevel->base->data;
+	dec->toplevel = toplevel;
 
-	/* Wait until the surface is initialized */
-	dec->surface_commit.notify = decoration_handle_surface_commit;
-	wl_signal_add(
-		&decoration->toplevel->base->surface->events.commit,
-		&dec->surface_commit
-	);
+	toplevel->has_xdg_decoration = true;
+
+	dec->request_mode.notify = handle_xdg_decoration_request_mode;
+	wl_signal_add(&decoration->events.request_mode, &dec->request_mode);
 
 	dec->destroy.notify = decoration_handle_destroy;
 	wl_signal_add(&decoration->events.destroy, &dec->destroy);
-
-	/* Enforce SSD forever */
-	dec->request_mode.notify = handle_xdg_decoration_request_mode;
-	wl_signal_add(
-		&decoration->events.request_mode,
-		&dec->request_mode
-	);
 }
 
 void begin_interactive(struct strg_toplevel *toplevel, enum strg_cursor_mode mode, uint32_t edges) {
@@ -275,6 +284,9 @@ void server_new_xdg_toplevel(struct wl_listener *listener, void *data) {
 	wl_signal_add(&xdg_toplevel->events.request_fullscreen, &toplevel->request_fullscreen);
 
 	xdg_toplevel->base->data = toplevel;
+	toplevel->has_xdg_decoration = false;
+	toplevel->decoration_pref = STRG_DECORATION_PREF_UNKNOWN;
+	toplevel->decorations_applied = false;
 }
 
 void xdg_popup_commit(struct wl_listener *listener, void *data) {
