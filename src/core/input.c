@@ -4,6 +4,7 @@
 #include <strg/xdg_shell.h>
 #include <wlr/types/wlr_data_device.h>
 #include <wlr/util/edges.h>
+#include <stdio.h>
 
 void focus_toplevel(struct strg_toplevel *toplevel) {
 	if (toplevel == NULL) {
@@ -86,6 +87,9 @@ bool handle_keybinding(struct strg_server *server, xkb_keysym_t sym) {
 			perror("execl");
 			break;
 		}
+		break;
+	case XKB_KEY_F9:
+		wl_display_terminate(server->wl_display);
 		break;
 	default:
 		return false;

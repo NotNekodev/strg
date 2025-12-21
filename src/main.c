@@ -147,6 +147,8 @@ int main(int argc, char *argv[]) {
 
 	wl_display_destroy_clients(server.wl_display);
 
+	wl_list_remove(&server.new_xdg_decoration.link);
+
 	wl_list_remove(&server.new_xdg_toplevel.link);
 	wl_list_remove(&server.new_xdg_popup.link);
 
