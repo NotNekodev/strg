@@ -11,7 +11,6 @@
 #include <wlr/types/wlr_xdg_shell.h>
 #include <wlr/types/wlr_xdg_decoration_v1.h>
 
-
 enum strg_cursor_mode {
     STRG_CURSOR_PASSTHROUGH,
     STRG_CURSOR_MOVE,

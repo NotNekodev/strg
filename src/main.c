@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <signal.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -25,6 +26,14 @@
 #include <strg/input.h>
 #include <strg/output.h>
 
+struct strg_server server = {0};
+
+void signal_handler(int signum, siginfo_t *info, void* ucontext) {
+	(void)ucontext;
+	fprintf(stderr, "received signal %d, terminating\n", signum);
+	wl_display_terminate(server.wl_display);
+}
+
 int main(int argc, char *argv[]) {
 	wlr_log_init(WLR_DEBUG, NULL);
 	char *kb_layout = "us"; // default
@@ -42,7 +51,13 @@ int main(int argc, char *argv[]) {
 		return 0;
 	}
 
-	struct strg_server server = {0};
+	struct sigaction sa = {0};
+	sa.sa_sigaction = signal_handler;
+	sa.sa_flags = SA_SIGINFO;
+
+	sigaction(SIGSEGV, &sa, NULL);
+	sigaction(SIGTERM, &sa, NULL);
+
 
 	server.wl_display = wl_display_create();
 	server.kb_layout = kb_layout;
