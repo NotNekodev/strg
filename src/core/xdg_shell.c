@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <strg/xdg_shell.h>
 #include <wlr/util/edges.h>
+#include <wlr/util/log.h>
 
 #include "strg/decorations.h"
 #include "strg/input.h"
@@ -202,7 +203,8 @@ void begin_interactive(struct strg_toplevel *toplevel, enum strg_cursor_mode mod
 void xdg_toplevel_request_move(struct wl_listener *listener, void *data) {
 	(void)data;
 	struct strg_toplevel *toplevel = wl_container_of(listener, toplevel, request_move);
-	begin_interactive(toplevel, STRG_CURSOR_MOVE, 0);
+
+	window_move(toplevel);
 }
 
 void xdg_toplevel_request_resize(struct wl_listener *listener, void *data) {
@@ -321,20 +323,22 @@ void xdg_popup_destroy(struct wl_listener *listener, void *data) {
 
 void xdg_popup_create(struct wl_listener *listener, void *data) {
 	(void)listener;
-	/* This event is raised when a client creates a new popup. */
 	struct wlr_xdg_popup *xdg_popup = data;
 
 	struct strg_popup *popup = calloc(1, sizeof(*popup));
 	popup->xdg_popup = xdg_popup;
 
-	/* We must add xdg popups to the scene graph so they get rendered. The
-	 * wlroots scene graph provides a helper for this, but to use it we must
-	 * provide the proper parent scene node of the xdg popup. To enable this,
-	 * we always set the user data field of xdg_surfaces to the corresponding
-	 * scene node. */
-	struct wlr_xdg_surface *parent = wlr_xdg_surface_try_from_wlr_surface(xdg_popup->parent);
+	struct wlr_xdg_surface *parent =
+		wlr_xdg_surface_try_from_wlr_surface(xdg_popup->parent);
 	assert(parent != NULL);
-	struct wlr_scene_tree *parent_tree = parent->data;
+
+	if (!parent->data) {
+		wlr_log(WLR_ERROR, "xdg_popup_create: parent->data is null\n");
+		free(popup);
+		return;
+	}
+
+	struct wlr_scene_tree *parent_tree = ((struct strg_toplevel *)parent->data)->scene_tree;
 	xdg_popup->base->data = wlr_scene_xdg_surface_create(parent_tree, xdg_popup->base);
 
 	popup->commit.notify = xdg_popup_commit;

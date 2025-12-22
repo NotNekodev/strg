@@ -57,3 +57,48 @@ void window_maximize(struct strg_toplevel *toplevel) {
 
     wlr_xdg_surface_schedule_configure(toplevel->xdg_toplevel->base);
 }
+
+void window_move(struct strg_toplevel *toplevel) {
+    if (toplevel->is_maximized) {
+        const double cursor_x = toplevel->server->cursor->x;
+        const double cursor_y = toplevel->server->cursor->y;
+
+        struct wlr_box current_geo = toplevel->xdg_toplevel->base->current.geometry;
+        if (current_geo.width == 0 || current_geo.height == 0) {
+            current_geo.width = toplevel->xdg_toplevel->base->surface->current.width;
+            current_geo.height = toplevel->xdg_toplevel->base->surface->current.height;
+        }
+
+        const double rel_x = (cursor_x - toplevel->scene_tree->node.x) / (double)current_geo.width;
+        double rel_y = (cursor_y - toplevel->scene_tree->node.y) / (double)current_geo.height;
+
+        if (toplevel->type == STRG_DECORATION_SERVER && rel_y < 0) {
+            rel_y = 0.5;
+        }
+
+        window_maximize(toplevel);
+
+        int new_width = toplevel->pre_maximize_geometry.width;
+        int new_height = toplevel->pre_maximize_geometry.height;
+
+        int new_x = cursor_x - (int)(new_width * rel_x);
+        int new_y = cursor_y - (int)(new_height * rel_y);
+
+        if (toplevel->type == STRG_DECORATION_SERVER && cursor_y < toplevel->scene_tree->node.y) {
+            new_y = cursor_y - TITLEBAR_HEIGHT / 2;
+        }
+
+        wlr_scene_node_set_position(&toplevel->scene_tree->node, new_x, new_y);
+        toplevel->pre_maximize_geometry.x = new_x;
+        toplevel->pre_maximize_geometry.y = new_y;
+
+        toplevel->server->grabbed_toplevel = toplevel;
+        toplevel->server->cursor_mode = STRG_CURSOR_MOVE;
+        toplevel->server->grab_x = cursor_x - new_x;
+        toplevel->server->grab_y = cursor_y - new_y;
+
+        return;
+    }
+
+    begin_interactive(toplevel, STRG_CURSOR_MOVE, 0);
+}
