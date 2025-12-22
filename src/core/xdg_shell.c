@@ -332,13 +332,13 @@ void xdg_popup_create(struct wl_listener *listener, void *data) {
 		wlr_xdg_surface_try_from_wlr_surface(xdg_popup->parent);
 	assert(parent != NULL);
 
-	if (!parent->data) {
-		wlr_log(WLR_ERROR, "xdg_popup_create: parent->data is null\n");
-		free(popup);
-		return;
+	struct wlr_scene_tree *parent_tree;
+	if (parent->role == WLR_XDG_SURFACE_ROLE_TOPLEVEL) {
+		parent_tree = ((struct strg_toplevel *)parent->data)->scene_tree;
+	} else {
+		parent_tree = parent->data;
 	}
 
-	struct wlr_scene_tree *parent_tree = ((struct strg_toplevel *)parent->data)->scene_tree;
 	xdg_popup->base->data = wlr_scene_xdg_surface_create(parent_tree, xdg_popup->base);
 
 	popup->commit.notify = xdg_popup_commit;
