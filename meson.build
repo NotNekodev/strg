@@ -25,7 +25,8 @@ srcs = files(
     'src/core/input.c',
     'src/core/output.c',
     'src/core/xdg_shell.c',
-    'src/style/decorations.c'
+    'src/style/decorations.c',
+    'src/core/window_function.c'
 )
 
 xdg_shell_xml = '/usr/share/wayland-protocols/stable/xdg-shell/xdg-shell.xml'

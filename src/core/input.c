@@ -8,6 +8,7 @@
 #include <linux/input-event-codes.h>
 
 #include "strg/decorations.h"
+#include "strg/window_function.h"
 
 void focus_toplevel(struct strg_toplevel *toplevel) {
 	if (toplevel == NULL) {
@@ -335,6 +336,33 @@ void server_cursor_button(struct wl_listener *listener, void *data) {
                                                           &surface, &sx, &sy);
 
     if (event->state == WL_POINTER_BUTTON_STATE_PRESSED && event->button == BTN_LEFT) {
+        if (!toplevel) {
+            struct strg_toplevel *tl;
+            wl_list_for_each(tl, &server->toplevels, link) {
+                if (tl->type == STRG_DECORATION_SERVER) {
+                    double local_x = server->cursor->x - tl->scene_tree->node.x;
+                    double local_y = server->cursor->y - tl->scene_tree->node.y;
+
+                    struct wlr_box geometry = tl->xdg_toplevel->base->current.geometry;
+                    if (geometry.width == 0) {
+                        geometry.width = tl->xdg_toplevel->base->surface->current.width;
+                    }
+                    if (geometry.height == 0) {
+                        geometry.height = tl->xdg_toplevel->base->surface->current.height;
+                    }
+
+                    // Check if click is within decoration area
+                    if (local_x >= -BORDER_WIDTH &&
+                        local_x < geometry.width + BORDER_WIDTH &&
+                        local_y >= -TITLEBAR_HEIGHT &&
+                        local_y < geometry.height + BORDER_WIDTH) {
+                        toplevel = tl;
+                        break;
+                    }
+                }
+            }
+        }
+
         if (toplevel && toplevel->type == STRG_DECORATION_SERVER) {
             if (is_click_on_close_button(toplevel, server->cursor->x, server->cursor->y)) {
                 wlr_xdg_toplevel_send_close(toplevel->xdg_toplevel);
@@ -342,36 +370,8 @@ void server_cursor_button(struct wl_listener *listener, void *data) {
             }
 
             if (is_click_on_maximize_button(toplevel, server->cursor->x, server->cursor->y)) {
-                if (toplevel->is_maximized) {
-                    wlr_xdg_toplevel_set_maximized(toplevel->xdg_toplevel, false);
-                    wlr_scene_node_set_position(&toplevel->scene_tree->node,
-                        toplevel->pre_maximize_geometry.x,
-                        toplevel->pre_maximize_geometry.y);
-                    wlr_xdg_toplevel_set_size(toplevel->xdg_toplevel,
-                        toplevel->pre_maximize_geometry.width,
-                        toplevel->pre_maximize_geometry.height);
-                    toplevel->is_maximized = false;
-                } else {
-                    struct wlr_output *output = wlr_output_layout_output_at(
-                        server->output_layout, server->cursor->x, server->cursor->y);
-                    if (output) {
-                        toplevel->pre_maximize_geometry.x = toplevel->scene_tree->node.x;
-                        toplevel->pre_maximize_geometry.y = toplevel->scene_tree->node.y;
-                        toplevel->pre_maximize_geometry.width =
-                            toplevel->xdg_toplevel->base->current.geometry.width;
-                        toplevel->pre_maximize_geometry.height =
-                            toplevel->xdg_toplevel->base->current.geometry.height;
 
-                        struct wlr_box output_box;
-                    	wlr_output_layout_get_box(server->output_layout, output, &output_box);
-                        wlr_xdg_toplevel_set_maximized(toplevel->xdg_toplevel, true);
-                        wlr_scene_node_set_position(&toplevel->scene_tree->node,
-                            output_box.x, output_box.y);
-                        wlr_xdg_toplevel_set_size(toplevel->xdg_toplevel,
-                            output_box.width, output_box.height);
-                        toplevel->is_maximized = true;
-                    }
-                }
+            	window_maximize(toplevel);
                 return;
             }
 
@@ -399,6 +399,7 @@ void server_cursor_button(struct wl_listener *listener, void *data) {
         toplevel) {
         focus_toplevel(toplevel);
         begin_interactive(toplevel, STRG_CURSOR_MOVE, 0);
+        return;
     }
 
     wlr_seat_pointer_notify_button(server->seat,

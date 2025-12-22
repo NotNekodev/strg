@@ -5,6 +5,7 @@
 
 #include "strg/decorations.h"
 #include "strg/input.h"
+#include "strg/window_function.h"
 
 void xdg_decoration_surface_commit_handler(struct wl_listener *listener, void *data) {
 	(void)data;
@@ -93,6 +94,7 @@ void xdg_toplevel_commit(struct wl_listener *listener, void *data) {
 
 	if (toplevel->type == STRG_DECORATION_SERVER && toplevel->decorations_applied) {
 		update_title(toplevel);
+		update_decoration_geometry(toplevel);
 	}
 }
 
@@ -203,9 +205,8 @@ void xdg_toplevel_request_maximize(struct wl_listener *listener, void *data) {
 
 	struct strg_toplevel *toplevel =
 		wl_container_of(listener, toplevel, request_maximize);
-	if (toplevel->xdg_toplevel->base->initialized) {
-		wlr_xdg_surface_schedule_configure(toplevel->xdg_toplevel->base);
-	}
+
+	window_maximize(toplevel);
 }
 
 void xdg_toplevel_request_fullscreen(struct wl_listener *listener, void *data) {
@@ -269,6 +270,9 @@ void xdg_toplevel_create(struct wl_listener *listener, void *data) {
 
 	toplevel->is_maximized = false;
 	toplevel->pre_maximize_geometry = (struct wlr_box){0};
+	toplevel->internal_maximized_geometry = (struct wlr_box){0};
+
+	toplevel->use_internal_maximize_geometry = false; // we arent sure if we use CSD or SSD at this point
 }
 
 void xdg_popup_commit(struct wl_listener *listener, void *data) {

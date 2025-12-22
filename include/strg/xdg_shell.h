@@ -53,6 +53,9 @@ struct strg_toplevel {
 
     bool is_maximized;
     struct wlr_box pre_maximize_geometry;
+
+    struct wlr_box internal_maximized_geometry; // basically so the decorations are still visible
+    bool use_internal_maximize_geometry;
 };
 
 struct strg_popup {

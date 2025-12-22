@@ -10,15 +10,6 @@
 #include <drm_fourcc.h>
 #include "strg/xdg_shell.h"
 
-#define TITLEBAR_HEIGHT 30
-#define BORDER_WIDTH 2
-#define BUTTON_SIZE 20
-#define BUTTON_MARGIN 5
-
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#endif
-
 struct cairo_buffer {
     struct wlr_buffer base;
     cairo_surface_t *surface;
@@ -268,6 +259,16 @@ void create_decorations(struct strg_toplevel *toplevel) {
     wlr_scene_node_set_position(&toplevel->border_bottom->node,
         -BORDER_WIDTH, geometry.height);
 
+    struct wlr_box maximized_geo = {
+        BORDER_WIDTH,
+        BORDER_WIDTH + TITLEBAR_HEIGHT,
+        geometry.width - 2 * BORDER_WIDTH,
+        geometry.height - (BORDER_WIDTH + TITLEBAR_HEIGHT),
+    };
+
+    memcpy(&toplevel->internal_maximized_geometry, &maximized_geo, sizeof(struct wlr_box)); // just dont ask about this bs
+    toplevel->use_internal_maximize_geometry = true;
+
     update_title(toplevel);
 }
 
@@ -330,6 +331,60 @@ void destroy_decorations(struct strg_toplevel *toplevel) {
         toplevel->border_bottom = NULL;
     }
 }
+
+void update_decoration_geometry(struct strg_toplevel *toplevel) {
+    if (toplevel->type != STRG_DECORATION_SERVER) {
+        return;
+    }
+
+    struct wlr_box geometry = toplevel->xdg_toplevel->base->current.geometry;
+    if (geometry.width == 0 || geometry.height == 0) {
+        geometry.width = toplevel->xdg_toplevel->base->surface->current.width;
+        geometry.height = toplevel->xdg_toplevel->base->surface->current.height;
+    }
+
+    if (toplevel->titlebar) {
+        wlr_scene_rect_set_size(toplevel->titlebar,
+            geometry.width + 2 * BORDER_WIDTH, TITLEBAR_HEIGHT);
+    }
+
+    if (toplevel->close_button_buffer) {
+        wlr_scene_node_set_position(&toplevel->close_button_buffer->node,
+            geometry.width - BUTTON_SIZE - BUTTON_MARGIN,
+            -TITLEBAR_HEIGHT + (TITLEBAR_HEIGHT - BUTTON_SIZE) / 2);
+    }
+
+    if (toplevel->maximize_button_buffer) {
+        wlr_scene_node_set_position(&toplevel->maximize_button_buffer->node,
+            geometry.width - BUTTON_SIZE * 2 - BUTTON_MARGIN * 2,
+            -TITLEBAR_HEIGHT + (TITLEBAR_HEIGHT - BUTTON_SIZE) / 2);
+    }
+
+    if (toplevel->minimize_button_buffer) {
+        wlr_scene_node_set_position(&toplevel->minimize_button_buffer->node,
+            geometry.width - BUTTON_SIZE * 3 - BUTTON_MARGIN * 3,
+            -TITLEBAR_HEIGHT + (TITLEBAR_HEIGHT - BUTTON_SIZE) / 2);
+    }
+
+    if (toplevel->border_left) {
+        wlr_scene_rect_set_size(toplevel->border_left, BORDER_WIDTH, geometry.height);
+    }
+
+    if (toplevel->border_right) {
+        wlr_scene_rect_set_size(toplevel->border_right, BORDER_WIDTH, geometry.height);
+        wlr_scene_node_set_position(&toplevel->border_right->node, geometry.width, 0);
+    }
+
+    if (toplevel->border_bottom) {
+        wlr_scene_rect_set_size(toplevel->border_bottom,
+            geometry.width + 2 * BORDER_WIDTH, BORDER_WIDTH);
+        wlr_scene_node_set_position(&toplevel->border_bottom->node,
+            -BORDER_WIDTH, geometry.height);
+    }
+
+    update_title(toplevel);
+}
+
 
 bool is_click_on_titlebar(struct strg_toplevel *toplevel, double sx, double sy) {
     if (!toplevel->titlebar) return false;
