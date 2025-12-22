@@ -259,15 +259,29 @@ void create_decorations(struct strg_toplevel *toplevel) {
     wlr_scene_node_set_position(&toplevel->border_bottom->node,
         -BORDER_WIDTH, geometry.height);
 
-    struct wlr_box maximized_geo = {
-        BORDER_WIDTH,
-        BORDER_WIDTH + TITLEBAR_HEIGHT,
-        geometry.width - 2 * BORDER_WIDTH,
-        geometry.height - (BORDER_WIDTH + TITLEBAR_HEIGHT),
-    };
+    struct wlr_output *output = wlr_output_layout_output_at(
+        toplevel->server->output_layout,
+        toplevel->scene_tree->node.x,
+        toplevel->scene_tree->node.y);
 
-    memcpy(&toplevel->internal_maximized_geometry, &maximized_geo, sizeof(struct wlr_box)); // just dont ask about this bs
-    toplevel->use_internal_maximize_geometry = true;
+    if (!output) {
+        output = wlr_output_layout_get_center_output(toplevel->server->output_layout);
+    }
+
+    if (output) {
+        struct wlr_box output_box;
+        wlr_output_layout_get_box(toplevel->server->output_layout, output, &output_box);
+
+        struct wlr_box maximized_geo = {
+            .x = output_box.x,
+            .y = output_box.y + TITLEBAR_HEIGHT,
+            .width = output_box.width - 2 * BORDER_WIDTH,
+            .height = output_box.height - TITLEBAR_HEIGHT - BORDER_WIDTH,
+        };
+
+        memcpy(&toplevel->internal_maximized_geometry, &maximized_geo, sizeof(struct wlr_box));
+        toplevel->use_internal_maximize_geometry = true;
+    }
 
     update_title(toplevel);
 }
