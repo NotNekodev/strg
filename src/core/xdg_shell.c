@@ -96,6 +96,9 @@ void xdg_toplevel_commit(struct wl_listener *listener, void *data) {
 		wlr_scene_node_set_position(&toplevel->scene_tree->node,
 			toplevel->pre_maximize_geometry.x,
 			toplevel->pre_maximize_geometry.y);
+		wlr_xdg_toplevel_set_size(toplevel->xdg_toplevel,
+			toplevel->pre_maximize_geometry.width,
+			toplevel->pre_maximize_geometry.height);
 		toplevel->pending_demax_restore = false;
 	}
 
