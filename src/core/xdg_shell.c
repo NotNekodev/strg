@@ -92,6 +92,13 @@ void xdg_toplevel_commit(struct wl_listener *listener, void *data) {
 		wlr_xdg_toplevel_set_size(toplevel->xdg_toplevel, 0, 0);
 	}
 
+	if (toplevel->pending_demax_restore) {
+		wlr_scene_node_set_position(&toplevel->scene_tree->node,
+			toplevel->pre_maximize_geometry.x,
+			toplevel->pre_maximize_geometry.y);
+		toplevel->pending_demax_restore = false;
+	}
+
 	if (toplevel->type == STRG_DECORATION_SERVER && toplevel->decorations_applied) {
 		update_title(toplevel);
 		update_decoration_geometry(toplevel);
@@ -112,6 +119,7 @@ void xdg_toplevel_destroy(struct wl_listener *listener, void *data) {
 	wl_list_remove(&toplevel->request_resize.link);
 	wl_list_remove(&toplevel->request_maximize.link);
 	wl_list_remove(&toplevel->request_fullscreen.link);
+	wl_list_remove(&toplevel->configure.link);
 
 	free(toplevel);
 }
@@ -219,6 +227,16 @@ void xdg_toplevel_request_fullscreen(struct wl_listener *listener, void *data) {
 	}
 }
 
+void xdg_configure_configure(struct wl_listener *listener, void *data) {
+	(void)data;
+	struct strg_toplevel *toplevel =
+		wl_container_of(listener, toplevel, configure);
+
+	if (toplevel->type == STRG_DECORATION_SERVER && toplevel->decorations_applied) {
+		update_decoration_geometry(toplevel);
+	}
+}
+
 void xdg_toplevel_create(struct wl_listener *listener, void *data) {
 	/* This event is raised when a client creates a new toplevel (application window). */
 	struct strg_server *server = wl_container_of(listener, server, new_xdg_toplevel);
@@ -240,9 +258,10 @@ void xdg_toplevel_create(struct wl_listener *listener, void *data) {
 	wl_signal_add(&xdg_toplevel->base->surface->events.unmap, &toplevel->unmap);
 	toplevel->commit.notify = xdg_toplevel_commit;
 	wl_signal_add(&xdg_toplevel->base->surface->events.commit, &toplevel->commit);
-
 	toplevel->destroy.notify = xdg_toplevel_destroy;
 	wl_signal_add(&xdg_toplevel->events.destroy, &toplevel->destroy);
+	toplevel->configure.notify = xdg_configure_configure;
+	wl_signal_add(&xdg_toplevel->base->events.configure, &toplevel->configure);
 
 	/* cotd */
 	toplevel->request_move.notify = xdg_toplevel_request_move;
@@ -273,6 +292,7 @@ void xdg_toplevel_create(struct wl_listener *listener, void *data) {
 	toplevel->internal_maximized_geometry = (struct wlr_box){0};
 
 	toplevel->use_internal_maximize_geometry = false; // we arent sure if we use CSD or SSD at this point
+	toplevel->pending_demax_restore = false;
 }
 
 void xdg_popup_commit(struct wl_listener *listener, void *data) {

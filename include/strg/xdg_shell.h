@@ -36,6 +36,7 @@ struct strg_toplevel {
     struct wl_listener request_resize;
     struct wl_listener request_maximize;
     struct wl_listener request_fullscreen;
+    struct wl_listener configure;
 
     enum strg_decoration_type type;
     bool has_xdg_decoration;
@@ -53,6 +54,7 @@ struct strg_toplevel {
 
     bool is_maximized;
     struct wlr_box pre_maximize_geometry;
+    bool pending_demax_restore;
 
     struct wlr_box internal_maximized_geometry; // basically so the decorations are still visible
     bool use_internal_maximize_geometry;
