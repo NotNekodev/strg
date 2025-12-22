@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <strg/output.h>
+#include <wlr/util/log.h>
 
 void output_frame(struct wl_listener *listener, void *data) {
 	(void)data;
@@ -63,7 +64,7 @@ void server_new_output(struct wl_listener *listener, void *data) {
 	struct wlr_output_mode *mode = wlr_output_preferred_mode(wlr_output);
 	if (mode != NULL) {
 		wlr_output_state_set_mode(&state, mode);
-		fprintf(stderr, "New output (w: %u h: %u r: %u", mode->width, mode->height, mode->refresh);
+		wlr_log(WLR_INFO, "New output (w: %u h: %u r: %u", mode->width, mode->height, mode->refresh);
 	}
 
 	/* Atomically applies the new output state. */

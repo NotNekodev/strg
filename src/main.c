@@ -90,7 +90,6 @@ int main(int argc, char *argv[]) {
 	sigaction(SIGSEGV, &sa, NULL);
 	sigaction(SIGTERM, &sa, NULL);
 
-
 	server.wl_display = wl_display_create();
 	server.kb_layout = kb_layout;
 
