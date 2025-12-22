@@ -3,7 +3,6 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <time.h>
 #include <unistd.h>
 #include <wayland-server-core.h>
 #include <wlr/backend.h>
@@ -26,13 +25,44 @@
 #include <strg/input.h>
 #include <strg/output.h>
 
+#include "strg/util/sigutil.h"
+
 struct strg_server server = {0};
 
 void signal_handler(int signum, siginfo_t *info, void* ucontext) {
 	(void)info;
 	(void)ucontext;
-	fprintf(stderr, "received signal %d, terminating\n", signum);
+	wlr_log(WLR_ERROR, "Caught signal %s (%d), shutting down!", sig_to_string(signum), signum);
 	wl_display_terminate(server.wl_display);
+
+	wl_display_destroy_clients(server.wl_display);
+
+	wl_list_remove(&server.new_xdg_decoration.link);
+
+	wl_list_remove(&server.new_xdg_toplevel.link);
+	wl_list_remove(&server.new_xdg_popup.link);
+
+	wl_list_remove(&server.cursor_motion.link);
+	wl_list_remove(&server.cursor_motion_absolute.link);
+	wl_list_remove(&server.cursor_button.link);
+	wl_list_remove(&server.cursor_axis.link);
+	wl_list_remove(&server.cursor_frame.link);
+
+	wl_list_remove(&server.new_input.link);
+	wl_list_remove(&server.request_cursor.link);
+	wl_list_remove(&server.pointer_focus_change.link);
+	wl_list_remove(&server.request_set_selection.link);
+
+	wl_list_remove(&server.new_output.link);
+
+	wlr_scene_node_destroy(&server.scene->tree.node);
+	wlr_xcursor_manager_destroy(server.cursor_mgr);
+	wlr_cursor_destroy(server.cursor);
+	wlr_allocator_destroy(server.allocator);
+	wlr_renderer_destroy(server.renderer);
+	wlr_backend_destroy(server.backend);
+	wl_display_destroy(server.wl_display);
+
 	exit(EXIT_FAILURE);
 }
 

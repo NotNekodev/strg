@@ -4,7 +4,7 @@ project('strg', 'c',
 
 add_project_arguments(
     '-DWLR_USE_UNSTABLE',
-    '-D_POSIX_C_SOURCE=200112L',
+    '-D_POSIX_C_SOURCE=200809L',
     language : 'c'
 )
 
@@ -26,7 +26,8 @@ srcs = files(
     'src/core/output.c',
     'src/core/xdg_shell.c',
     'src/style/decorations.c',
-    'src/core/window_function.c'
+    'src/core/window_function.c',
+    'src/util/sigutil.c'
 )
 
 xdg_shell_xml = '/usr/share/wayland-protocols/stable/xdg-shell/xdg-shell.xml'
