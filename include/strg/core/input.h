@@ -13,7 +13,7 @@ struct strg_keyboard {
     struct wl_listener destroy;
 };
 
-void focus_toplevel(struct strg_toplevel *toplevel);
+void focus_window(struct strg_window *toplevel);
 void keyboard_handle_modifiers(struct wl_listener *listener, void *data);
 bool handle_keybinding(struct strg_server *server, xkb_keysym_t sym);
 void keyboard_handle_key(struct wl_listener *listener, void *data);
@@ -24,7 +24,7 @@ void server_new_input(struct wl_listener *listener, void *data);
 void seat_request_cursor(struct wl_listener *listener, void *data);
 void seat_pointer_focus_change(struct wl_listener *listener, void *data);
 void seat_request_set_selection(struct wl_listener *listener, void *data);
-struct strg_toplevel *desktop_toplevel_at(struct strg_server *server, double lx, double ly, struct wlr_surface **surface, double *sx, double *sy);
+struct strg_window *desktop_window_at(struct strg_server *server, double lx, double ly, struct wlr_surface **surface, double *sx, double *sy);
 void reset_cursor_mode(struct strg_server *server);
 void process_cursor_move(struct strg_server *server);
 void process_cursor_resize(struct strg_server *server);

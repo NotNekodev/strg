@@ -27,6 +27,8 @@
 
 #include <strg/util/sigutil.h>
 
+#include "strg/core/protocol/xwayland/xwl.h"
+
 struct strg_server server = {0};
 
 void signal_handler(int signum, siginfo_t *info, void* ucontext) {
@@ -113,7 +115,7 @@ int main(int argc, char *argv[]) {
 		return 1;
 	}
 
-	wlr_compositor_create(server.wl_display, 5, server.renderer);
+	struct wlr_compositor *comp = wlr_compositor_create(server.wl_display, 5, server.renderer);
 	wlr_subcompositor_create(server.wl_display);
 	wlr_data_device_manager_create(server.wl_display);
 
@@ -123,6 +125,20 @@ int main(int argc, char *argv[]) {
 		&server.xdg_decoration_manager->events.new_toplevel_decoration,
 		&server.new_xdg_decoration
 	);
+
+	// todo: see which DISPLAY is free and use that
+	setenv("DISPLAY", ":2", true);
+
+	struct strg_xwayland *xwl = malloc(sizeof(struct strg_xwayland));
+	xwl->server = &server;
+	if (!xwl_init(xwl, server.wl_display, comp, false)) {
+		wlr_log(WLR_ERROR, "failed to create xwayland server");
+		return 1;
+	}
+
+	server.xwayland = xwl;
+
+	xwl_set_seat(xwl, server.seat);
 
 	server.output_layout = wlr_output_layout_create(server.wl_display);
 
@@ -192,6 +208,11 @@ int main(int argc, char *argv[]) {
 
 	wl_display_destroy_clients(server.wl_display);
 
+	wl_list_remove(&server.xwayland->new_surface.link);
+	wl_list_remove(&server.xwayland->ready.link);
+	wl_list_remove(&server.xwayland->remove.link);
+	wlr_xwayland_destroy(server.xwayland->xwayland);
+
 	wl_list_remove(&server.new_xdg_decoration.link);
 
 	wl_list_remove(&server.new_xdg_toplevel.link);
@@ -217,6 +238,8 @@ int main(int argc, char *argv[]) {
 	wlr_renderer_destroy(server.renderer);
 	wlr_backend_destroy(server.backend);
 	wl_display_destroy(server.wl_display);
+
+	free(xwl);
 
 	return 0;
 }

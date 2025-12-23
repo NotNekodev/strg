@@ -26,6 +26,8 @@ srcs = files(
     'src/core/output.c',
     'src/core/protocol/xdg/xdg.c',
     'src/core/protocol/xdg/xdg_ops.c',
+    'src/core/protocol/xwayland/xwl.c',
+    'src/core/protocol/xwayland/xwl_ops.c',
     'src/style/decorations.c',
     'src/util/sigutil.c',
     'src/util/window_util.c'

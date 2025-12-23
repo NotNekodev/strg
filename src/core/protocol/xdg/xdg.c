@@ -148,33 +148,6 @@ void xdg_new_decoration_handler(struct wl_listener *listener, void *data) {
 	wl_signal_add(&decoration->events.destroy, &dec->destroy);
 }
 
-void begin_interactive(struct strg_toplevel *toplevel, enum strg_cursor_mode mode, uint32_t edges) {
-	struct strg_server *server = toplevel->server;
-
-	server->grabbed_toplevel = toplevel;
-	server->cursor_mode = mode;
-
-	if (mode == STRG_CURSOR_MOVE) {
-		server->grab_x = server->cursor->x - toplevel->scene_tree->node.x;
-		server->grab_y = server->cursor->y - toplevel->scene_tree->node.y;
-	} else {
-		struct wlr_box *geo_box = &toplevel->xdg_toplevel->base->geometry;
-
-		double border_x = (toplevel->scene_tree->node.x + geo_box->x) +
-			((edges & WLR_EDGE_RIGHT) ? geo_box->width : 0);
-		double border_y = (toplevel->scene_tree->node.y + geo_box->y) +
-			((edges & WLR_EDGE_BOTTOM) ? geo_box->height : 0);
-		server->grab_x = server->cursor->x - border_x;
-		server->grab_y = server->cursor->y - border_y;
-
-		server->grab_geobox = *geo_box;
-		server->grab_geobox.x += toplevel->scene_tree->node.x;
-		server->grab_geobox.y += toplevel->scene_tree->node.y;
-
-		server->resize_edges = edges;
-	}
-}
-
 void xdg_toplevel_request_move(struct wl_listener *listener, void *data) {
 	(void)data;
 	struct strg_toplevel *toplevel = wl_container_of(listener, toplevel, request_move);

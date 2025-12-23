@@ -5,41 +5,84 @@
 #include <wlr/types/wlr_data_device.h>
 #include <wlr/util/edges.h>
 
+#include <strg/core/protocol/xdg/xdg.h>
+
 #include <linux/input-event-codes.h>
 
 #include <strg/style/decorations.h>
 #include <strg/core/protocol/xdg/xdg_ops.h>
 #include <strg/core/input.h>
 #include <strg/core/protocol/xdg/xdg.h>
+#include <strg/core/protocol/xwayland/xwl.h>
 
-void focus_toplevel(struct strg_toplevel *toplevel) {
-	if (toplevel == NULL) {
-		return;
-	}
-	struct strg_server *server = toplevel->server;
-	struct wlr_seat *seat = server->seat;
-	struct wlr_surface *prev_surface = seat->keyboard_state.focused_surface;
-	struct wlr_surface *surface = toplevel->xdg_toplevel->base->surface;
-	if (prev_surface == surface) {
-		return;
-	}
-	if (prev_surface) {
-		struct wlr_xdg_toplevel *prev_toplevel =
-			wlr_xdg_toplevel_try_from_wlr_surface(prev_surface);
-		if (prev_toplevel != NULL) {
-			wlr_xdg_toplevel_set_activated(prev_toplevel, false);
-		}
-	}
-	struct wlr_keyboard *keyboard = wlr_seat_get_keyboard(seat);
-	wlr_scene_node_raise_to_top(&toplevel->scene_tree->node);
-	wl_list_remove(&toplevel->link);
-	wl_list_insert(&server->toplevels, &toplevel->link);
-	wlr_xdg_toplevel_set_activated(toplevel->xdg_toplevel, true);
-	if (keyboard != NULL) {
-		wlr_seat_keyboard_notify_enter(seat, surface,
-			keyboard->keycodes, keyboard->num_keycodes, &keyboard->modifiers);
-	}
+#include "strg/core/protocol/xwayland/xwl_ops.h"
+
+void focus_window(struct strg_window *win) {
+    if (!win || !win->window) {
+        return;
+    }
+
+    struct strg_server *server = NULL;
+    struct wlr_surface *surface = NULL;
+
+    switch (win->type) {
+        case STRG_WINDOW_XDG: {
+            struct strg_toplevel *toplevel = win->window;
+            server = toplevel->server;
+            surface = toplevel->xdg_toplevel->base->surface;
+
+            struct wlr_surface *prev_surface = server->seat->keyboard_state.focused_surface;
+            if (prev_surface && prev_surface != surface) {
+                struct wlr_xdg_toplevel *prev_toplevel =
+                    wlr_xdg_toplevel_try_from_wlr_surface(prev_surface);
+                if (prev_toplevel) {
+                    wlr_xdg_toplevel_set_activated(prev_toplevel, false);
+                }
+            }
+
+            wlr_scene_node_raise_to_top(&toplevel->scene_tree->node);
+            wl_list_remove(&toplevel->link);
+            wl_list_insert(&server->toplevels, &toplevel->link);
+
+            wlr_xdg_toplevel_set_activated(toplevel->xdg_toplevel, true);
+            break;
+        }
+
+        case STRG_WINDOW_XWAYLAND: {
+            struct strg_xwayland_surface *xwl = win->window;
+            server = xwl->xwl->server;
+            surface = xwl->xwayland_surface->surface;
+
+            struct wlr_surface *prev_surface = server->seat->keyboard_state.focused_surface;
+            if (prev_surface && prev_surface != surface) {
+                struct wlr_xwayland_surface *prev_xwl =
+                    wlr_xwayland_surface_try_from_wlr_surface(prev_surface);
+                if (prev_xwl) {
+                    wlr_xwayland_surface_set_demands_attention(prev_xwl, false);
+                }
+            }
+
+            wlr_scene_node_raise_to_top(&xwl->scene_tree->node);
+            if (!wl_list_empty(&xwl->link)) {
+	            wl_list_remove(&xwl->link);
+            }
+            wl_list_insert(&server->toplevels, &xwl->link);
+
+            wlr_xwayland_surface_set_demands_attention(xwl->xwayland_surface, true);
+            break;
+        }
+
+        default:
+            return;
+    }
+
+    struct wlr_keyboard *keyboard = wlr_seat_get_keyboard(server->seat);
+    if (keyboard) {
+        wlr_seat_keyboard_notify_enter(server->seat, surface,
+            keyboard->keycodes, keyboard->num_keycodes, &keyboard->modifiers);
+    }
 }
+
 
 void keyboard_handle_modifiers(struct wl_listener *listener, void *data) {
 	(void)data;
@@ -59,7 +102,10 @@ bool handle_keybinding(struct strg_server *server, xkb_keysym_t sym) {
 			break;
 		}
 		struct strg_toplevel *next_toplevel = wl_container_of(server->toplevels.prev, next_toplevel, link);
-		focus_toplevel(next_toplevel);
+		focus_window(&(struct strg_window){
+			.type = STRG_WINDOW_XDG,
+			.window = next_toplevel
+		});
 		break;
 	case XKB_KEY_F2:
 		pid_t pid = fork();
@@ -208,78 +254,164 @@ void seat_request_set_selection(struct wl_listener *listener, void *data) {
 	wlr_seat_set_selection(server->seat, event->source, event->serial);
 }
 
-struct strg_toplevel *desktop_toplevel_at(struct strg_server *server, double lx, double ly, struct wlr_surface **surface, double *sx, double *sy) {
-	struct wlr_scene_node *node = wlr_scene_node_at(
-		&server->scene->tree.node, lx, ly, sx, sy);
-	if (node == NULL || node->type != WLR_SCENE_NODE_BUFFER) {
+struct strg_window *desktop_window_at(struct strg_server *server,
+				  double lx, double ly,
+				  struct wlr_surface **surface,
+				  double *sx, double *sy)
+{
+	struct wlr_scene_node *node =
+		wlr_scene_node_at(&server->scene->tree.node, lx, ly, sx, sy);
+
+	if (!node || node->type != WLR_SCENE_NODE_BUFFER) {
 		return NULL;
 	}
-	struct wlr_scene_buffer *scene_buffer = wlr_scene_buffer_from_node(node);
+
+	struct wlr_scene_buffer *scene_buffer =
+		wlr_scene_buffer_from_node(node);
+
 	struct wlr_scene_surface *scene_surface =
 		wlr_scene_surface_try_from_buffer(scene_buffer);
+
 	if (!scene_surface) {
 		return NULL;
 	}
 
 	*surface = scene_surface->surface;
+
 	struct wlr_scene_tree *tree = node->parent;
-	while (tree != NULL && tree->node.data == NULL) {
+	while (tree && !tree->node.data) {
 		tree = tree->node.parent;
 	}
-	return tree->node.data;
+
+	if (!tree || !tree->node.data) {
+		return NULL;
+	}
+
+	static struct strg_window win;
+
+	if (((struct strg_toplevel *)tree->node.data)->xdg_toplevel) {
+		win.type = STRG_WINDOW_XDG;
+		win.window = tree->node.data;
+		return &win;
+	}
+
+	struct strg_xwayland_surface *xwl = tree->node.data;
+	if (xwl->xwayland_surface) {
+		win.type = STRG_WINDOW_XWAYLAND;
+		win.window = xwl;
+		return &win;
+	}
+
+	return NULL;
 }
+
 
 void reset_cursor_mode(struct strg_server *server) {
 	server->cursor_mode = STRG_CURSOR_PASSTHROUGH;
-	server->grabbed_toplevel = NULL;
+	free(server->grabbed_window);
+	server->grabbed_window = NULL;
 }
 
 void process_cursor_move(struct strg_server *server) {
-	struct strg_toplevel *toplevel = server->grabbed_toplevel;
-	wlr_scene_node_set_position(&toplevel->scene_tree->node,
-		server->cursor->x - server->grab_x,
-		server->cursor->y - server->grab_y);
+	if (server->grabbed_window->type == STRG_WINDOW_XDG) {
+		struct strg_toplevel *toplevel = server->grabbed_window->window;
+		wlr_scene_node_set_position(&toplevel->scene_tree->node,
+			server->cursor->x - server->grab_x,
+			server->cursor->y - server->grab_y);
+	} else {
+		struct strg_xwayland_surface *surface = server->grabbed_window->window;
+		wlr_scene_node_set_position(&surface->scene_tree->node,
+			server->cursor->x - server->grab_x,
+			server->cursor->y - server->grab_y);
+	}
 }
 
 void process_cursor_resize(struct strg_server *server) {
-	struct strg_toplevel *toplevel = server->grabbed_toplevel;
-	double border_x = server->cursor->x - server->grab_x;
-	double border_y = server->cursor->y - server->grab_y;
-	int new_left = server->grab_geobox.x;
-	int new_right = server->grab_geobox.x + server->grab_geobox.width;
-	int new_top = server->grab_geobox.y;
-	int new_bottom = server->grab_geobox.y + server->grab_geobox.height;
+	if (server->grabbed_window->type == STRG_WINDOW_XDG) {
+		struct strg_toplevel *toplevel = server->grabbed_window->window;
+		double border_x = server->cursor->x - server->grab_x;
+		double border_y = server->cursor->y - server->grab_y;
+		int new_left = server->grab_geobox.x;
+		int new_right = server->grab_geobox.x + server->grab_geobox.width;
+		int new_top = server->grab_geobox.y;
+		int new_bottom = server->grab_geobox.y + server->grab_geobox.height;
 
-	if (server->resize_edges & WLR_EDGE_TOP) {
-		new_top = border_y;
-		if (new_top >= new_bottom) {
-			new_top = new_bottom - 1;
+		if (server->resize_edges & WLR_EDGE_TOP) {
+			new_top = border_y;
+			if (new_top >= new_bottom) {
+				new_top = new_bottom - 1;
+			}
+		} else if (server->resize_edges & WLR_EDGE_BOTTOM) {
+			new_bottom = border_y;
+			if (new_bottom <= new_top) {
+				new_bottom = new_top + 1;
+			}
 		}
-	} else if (server->resize_edges & WLR_EDGE_BOTTOM) {
-		new_bottom = border_y;
-		if (new_bottom <= new_top) {
-			new_bottom = new_top + 1;
+		if (server->resize_edges & WLR_EDGE_LEFT) {
+			new_left = border_x;
+			if (new_left >= new_right) {
+				new_left = new_right - 1;
+			}
+		} else if (server->resize_edges & WLR_EDGE_RIGHT) {
+			new_right = border_x;
+			if (new_right <= new_left) {
+				new_right = new_left + 1;
+			}
 		}
+
+		struct wlr_box *geo_box = &toplevel->xdg_toplevel->base->geometry;
+		wlr_scene_node_set_position(&toplevel->scene_tree->node,
+			new_left - geo_box->x, new_top - geo_box->y);
+
+		int new_width = new_right - new_left;
+		int new_height = new_bottom - new_top;
+		wlr_xdg_toplevel_set_size(toplevel->xdg_toplevel, new_width, new_height);
+	} else {
+		struct strg_xwayland_surface *surface = server->grabbed_window->window;
+		double border_x = server->cursor->x - server->grab_x;
+		double border_y = server->cursor->y - server->grab_y;
+		int new_left = server->grab_geobox.x;
+		int new_right = server->grab_geobox.x + server->grab_geobox.width;
+		int new_top = server->grab_geobox.y;
+		int new_bottom = server->grab_geobox.y + server->grab_geobox.height;
+
+		if (server->resize_edges & WLR_EDGE_TOP) {
+			new_top = border_y;
+			if (new_top >= new_bottom) {
+				new_top = new_bottom - 1;
+			}
+		} else if (server->resize_edges & WLR_EDGE_BOTTOM) {
+			new_bottom = border_y;
+			if (new_bottom <= new_top) {
+				new_bottom = new_top + 1;
+			}
+		}
+		if (server->resize_edges & WLR_EDGE_LEFT) {
+			new_left = border_x;
+			if (new_left >= new_right) {
+				new_left = new_right - 1;
+			}
+		} else if (server->resize_edges & WLR_EDGE_RIGHT) {
+			new_right = border_x;
+			if (new_right <= new_left) {
+				new_right = new_left + 1;
+			}
+		}
+
+		struct wlr_box current_geo = {
+			.x = surface->xwayland_surface->x,
+			.y = surface->xwayland_surface->y,
+			.width = surface->xwayland_surface->surface->current.width,
+			.height = surface->xwayland_surface->surface->current.height
+		};
+
+		wlr_scene_node_set_position(&surface->scene_tree->node,
+			new_left - current_geo.x, new_top - current_geo.y);
+
+		int new_width = new_right - new_left;
+		int new_height = new_bottom - new_top;
+		wlr_xwayland_surface_configure(surface->xwayland_surface, surface->xwayland_surface->x, surface->xwayland_surface->y, new_width, new_height);
 	}
-	if (server->resize_edges & WLR_EDGE_LEFT) {
-		new_left = border_x;
-		if (new_left >= new_right) {
-			new_left = new_right - 1;
-		}
-	} else if (server->resize_edges & WLR_EDGE_RIGHT) {
-		new_right = border_x;
-		if (new_right <= new_left) {
-			new_right = new_left + 1;
-		}
-	}
-
-	struct wlr_box *geo_box = &toplevel->xdg_toplevel->base->geometry;
-	wlr_scene_node_set_position(&toplevel->scene_tree->node,
-		new_left - geo_box->x, new_top - geo_box->y);
-
-	int new_width = new_right - new_left;
-	int new_height = new_bottom - new_top;
-	wlr_xdg_toplevel_set_size(toplevel->xdg_toplevel, new_width, new_height);
 }
 
 void process_cursor_motion(struct strg_server *server, uint32_t time) {
@@ -294,11 +426,13 @@ void process_cursor_motion(struct strg_server *server, uint32_t time) {
 	double sx, sy;
 	struct wlr_seat *seat = server->seat;
 	struct wlr_surface *surface = NULL;
-	struct strg_toplevel *toplevel = desktop_toplevel_at(server,
-			server->cursor->x, server->cursor->y, &surface, &sx, &sy);
-	if (!toplevel) {
+	struct strg_window *win = desktop_window_at(server, server->cursor->x, server->cursor->y,
+					  &surface, &sx, &sy);
+
+	if (!win) {
 		wlr_cursor_set_xcursor(server->cursor, server->cursor_mgr, "default");
 	}
+
 	if (surface) {
 		wlr_seat_pointer_notify_enter(seat, surface, sx, sy);
 		wlr_seat_pointer_notify_motion(seat, time, sx, sy);
@@ -332,85 +466,90 @@ void server_cursor_button(struct wl_listener *listener, void *data) {
 
     double sx, sy;
     struct wlr_surface *surface = NULL;
-    struct strg_toplevel *toplevel = desktop_toplevel_at(server,
+    struct strg_window *window = desktop_window_at(server,
                                                           server->cursor->x,
                                                           server->cursor->y,
                                                           &surface, &sx, &sy);
 
     if (event->state == WL_POINTER_BUTTON_STATE_PRESSED && event->button == BTN_LEFT) {
-        if (!toplevel) {
-            struct strg_toplevel *tl;
-            wl_list_for_each(tl, &server->toplevels, link) {
-                if (tl->type == STRG_DECORATION_SERVER) {
-                    double local_x = server->cursor->x - tl->scene_tree->node.x;
-                    double local_y = server->cursor->y - tl->scene_tree->node.y;
+    	if (!window) {
+    		struct strg_toplevel *tl;
+    		wl_list_for_each(tl, &server->toplevels, link) {
+    			if (tl->type != STRG_DECORATION_SERVER) continue;
 
-                    struct wlr_box geometry = tl->xdg_toplevel->base->current.geometry;
-                    if (geometry.width == 0) {
-                        geometry.width = tl->xdg_toplevel->base->surface->current.width;
-                    }
-                    if (geometry.height == 0) {
-                        geometry.height = tl->xdg_toplevel->base->surface->current.height;
-                    }
+    			double local_x = server->cursor->x - tl->scene_tree->node.x;
+    			double local_y = server->cursor->y - tl->scene_tree->node.y;
 
-                    // Check if click is within decoration area
-                    if (local_x >= -BORDER_WIDTH &&
-                        local_x < geometry.width + BORDER_WIDTH &&
-                        local_y >= -TITLEBAR_HEIGHT &&
-                        local_y < geometry.height + BORDER_WIDTH) {
-                        toplevel = tl;
-                        break;
-                    }
-                }
-            }
-        }
+    			struct wlr_box geo = tl->xdg_toplevel->base->current.geometry;
+    			if (geo.width == 0) geo.width = tl->xdg_toplevel->base->surface->current.width;
+    			if (geo.height == 0) geo.height = tl->xdg_toplevel->base->surface->current.height;
 
-        if (toplevel && toplevel->type == STRG_DECORATION_SERVER) {
-            if (is_click_on_close_button(toplevel, server->cursor->x, server->cursor->y)) {
-                wlr_xdg_toplevel_send_close(toplevel->xdg_toplevel);
-                return;
-            }
+    			if (local_x >= -BORDER_WIDTH &&
+					local_x < geo.width + BORDER_WIDTH &&
+					local_y >= -TITLEBAR_HEIGHT &&
+					local_y < geo.height + BORDER_WIDTH) {
+    				static struct strg_window tmp_win;
+    				tmp_win.type = STRG_WINDOW_XDG;
+    				tmp_win.window = tl;
+    				window = &tmp_win;
+    				break;
+					}
+    		}
+    	}
 
-            if (is_click_on_maximize_button(toplevel, server->cursor->x, server->cursor->y)) {
-            	xdg_window_maximize(toplevel);
-                return;
-            }
+    	if (window && window->type == STRG_WINDOW_XDG) {
+    		struct strg_toplevel *t = window->window;
 
-            if (is_click_on_minimize_button(toplevel, server->cursor->x, server->cursor->y)) {
-                wlr_xdg_toplevel_set_activated(toplevel->xdg_toplevel, false);
-                return;
-            }
+    		if (is_click_on_close_button(t, server->cursor->x, server->cursor->y)) {
+    			wlr_xdg_toplevel_send_close(t->xdg_toplevel);
+    			return;
+    		}
 
-            if (is_click_on_titlebar(toplevel, server->cursor->x, server->cursor->y)) {
-                focus_toplevel(toplevel);
-            	xdg_window_move(toplevel);
-                return;
-            }
-        }
+    		if (is_click_on_maximize_button(t, server->cursor->x, server->cursor->y)) {
+    			xdg_window_maximize(t);
+    			return;
+    		}
 
-        if (toplevel) {
-            focus_toplevel(toplevel);
-        }
+    		if (is_click_on_minimize_button(t, server->cursor->x, server->cursor->y)) {
+    			wlr_xdg_toplevel_set_activated(t->xdg_toplevel, false);
+    			return;
+    		}
+
+    		if (is_click_on_titlebar(t, server->cursor->x, server->cursor->y)) {
+    			focus_window(window);
+    			xdg_window_move(t);
+    			return;
+    		}
+    	}
+
+    	if (window) {
+    		focus_window(window);
+    	}
     }
 
-    uint32_t modifiers = wlr_keyboard_get_modifiers(server->seat->keyboard_state.keyboard);
-    if (event->state == WL_POINTER_BUTTON_STATE_PRESSED &&
-        event->button == BTN_LEFT &&
-        (modifiers & WLR_MODIFIER_ALT) &&
-        toplevel) {
-        focus_toplevel(toplevel);
-    	xdg_window_move(toplevel);
-        return;
-    }
+	uint32_t modifiers = wlr_keyboard_get_modifiers(server->seat->keyboard_state.keyboard);
+	if (event->state == WL_POINTER_BUTTON_STATE_PRESSED &&
+		event->button == BTN_LEFT &&
+		(modifiers & WLR_MODIFIER_ALT) &&
+		window) {
+		focus_window(window);
+		if (window->type == STRG_WINDOW_XDG) {
+			xdg_window_move(window->window);
+		} else if (window->type == STRG_WINDOW_XWAYLAND) {
+			xwl_surface_move(window->window);
+		}
 
-    wlr_seat_pointer_notify_button(server->seat,
-                                   event->time_msec,
-                                   event->button,
-                                   event->state);
+		return;
+		}
 
-    if (event->state == WL_POINTER_BUTTON_STATE_RELEASED) {
-        reset_cursor_mode(server);
-    }
+	wlr_seat_pointer_notify_button(server->seat,
+								   event->time_msec,
+								   event->button,
+								   event->state);
+
+	if (event->state == WL_POINTER_BUTTON_STATE_RELEASED) {
+		reset_cursor_mode(server);
+	}
 }
 
 

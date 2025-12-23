@@ -19,8 +19,19 @@ enum strg_cursor_mode {
     STRG_CURSOR_RESIZE,
 };
 
+enum strg_window_type {
+    STRG_WINDOW_XDG,
+    STRG_WINDOW_XWAYLAND,
+};
+
+struct strg_window {
+    enum strg_window_type type;
+    void *window;
+};
+
 struct strg_server {
     struct wl_display *wl_display;
+    struct strg_xwayland *xwayland;
     struct wlr_backend *backend;
     struct wlr_renderer *renderer;
     struct wlr_allocator *allocator;
@@ -47,7 +58,7 @@ struct strg_server {
     struct wl_listener request_set_selection;
     struct wl_list keyboards;
     enum strg_cursor_mode cursor_mode;
-    struct strg_toplevel *grabbed_toplevel;
+    struct strg_window *grabbed_window;
     double grab_x, grab_y;
     struct wlr_box grab_geobox;
     uint32_t resize_edges;

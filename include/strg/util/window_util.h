@@ -3,6 +3,6 @@
 
 #include <strg/core/protocol/xdg/xdg.h>
 
-struct wlr_output *get_dominant_output(struct strg_toplevel *toplevel);
+struct wlr_output *get_dominant_output(struct strg_window *window);
 
 #endif //STRG_WINDOW_UTIL_H

@@ -1,18 +1,13 @@
 #ifndef STRG_DECORATIONS_H
 #define STRG_DECORATIONS_H
 
-#include <strg/strg.h>
-
-#include <math.h>
 
 #define TITLEBAR_HEIGHT 30
 #define BORDER_WIDTH 2
 #define BUTTON_SIZE 20
 #define BUTTON_MARGIN 5
 
-#ifndef M_PI
 #define M_PI 3.14159265358979323846
-#endif
 
 void create_decorations(struct strg_toplevel *toplevel);
 void update_title(struct strg_toplevel *toplevel);

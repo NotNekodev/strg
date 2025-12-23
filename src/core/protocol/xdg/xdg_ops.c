@@ -1,6 +1,9 @@
+#include <stdlib.h>
+#include <string.h>
 #include <strg/core/protocol/xdg/xdg_ops.h>
 #include <strg/style/decorations.h>
 #include <strg/util/window_util.h>
+#include <wlr/util/edges.h>
 
 #include "strg/core/input.h"
 
@@ -9,7 +12,7 @@ void xdg_window_maximize(struct strg_toplevel *toplevel) {
         return;
     }
 
-    struct wlr_output *output = get_dominant_output(toplevel);
+    struct wlr_output *output = get_dominant_output(&(struct strg_window){ .type = STRG_WINDOW_XDG, .window = toplevel });
     if (!output) {
         return;
     }
@@ -93,7 +96,11 @@ void xdg_window_move(struct strg_toplevel *toplevel) {
         toplevel->pre_maximize_geometry.x = new_x;
         toplevel->pre_maximize_geometry.y = new_y;
 
-        toplevel->server->grabbed_toplevel = toplevel;
+        toplevel->server->grabbed_window = malloc(sizeof(struct strg_window));
+        memset(toplevel->server->grabbed_window, 0, sizeof(struct strg_window));
+        toplevel->server->grabbed_window->type = STRG_WINDOW_XDG;
+        toplevel->server->grabbed_window->window = toplevel;
+
         toplevel->server->cursor_mode = STRG_CURSOR_MOVE;
         toplevel->server->grab_x = cursor_x - new_x;
         toplevel->server->grab_y = cursor_y - new_y;
@@ -101,7 +108,7 @@ void xdg_window_move(struct strg_toplevel *toplevel) {
         return;
     }
 
-    begin_interactive(toplevel, STRG_CURSOR_MOVE, 0);
+    xdg_begin_interactive(toplevel, STRG_CURSOR_MOVE, 0);
 }
 
 
@@ -139,7 +146,11 @@ void xdg_window_resize(struct strg_toplevel *toplevel) {
         toplevel->pre_maximize_geometry.x = new_x;
         toplevel->pre_maximize_geometry.y = new_y;
 
-        toplevel->server->grabbed_toplevel = toplevel;
+        toplevel->server->grabbed_window = malloc(sizeof(struct strg_window));
+        memset(toplevel->server->grabbed_window, 0, sizeof(struct strg_window));
+        toplevel->server->grabbed_window->type = STRG_WINDOW_XDG;
+        toplevel->server->grabbed_window->window = toplevel;
+
         toplevel->server->cursor_mode = STRG_CURSOR_MOVE;
         toplevel->server->grab_x = cursor_x - new_x;
         toplevel->server->grab_y = cursor_y - new_y;
@@ -147,7 +158,7 @@ void xdg_window_resize(struct strg_toplevel *toplevel) {
         return;
     }
 
-    begin_interactive(toplevel, STRG_CURSOR_RESIZE, 0);
+    xdg_begin_interactive(toplevel, STRG_CURSOR_RESIZE, 0);
 }
 
 void xdg_window_fullscreen(struct strg_toplevel *toplevel) {
@@ -178,13 +189,50 @@ void xdg_window_map(struct strg_toplevel *toplevel) {
     toplevel->decorations_applied = true;
 
     done:
-        focus_toplevel(toplevel);
+        focus_window(&(struct strg_window){
+            .type = STRG_WINDOW_XDG,
+            .window = toplevel
+        });
 }
 
 void xdg_window_unmap(struct strg_toplevel *toplevel) {
-    if (toplevel == toplevel->server->grabbed_toplevel) {
-        reset_cursor_mode(toplevel->server);
+    if (toplevel->server->grabbed_window) {
+        if (toplevel->server->grabbed_window->type == STRG_WINDOW_XDG &&
+        toplevel->server->grabbed_window->window == toplevel) {
+            reset_cursor_mode(toplevel->server);
+        }
     }
 
     wl_list_remove(&toplevel->link);
+}
+
+void xdg_begin_interactive(struct strg_toplevel *toplevel, enum strg_cursor_mode mode, uint32_t edges) {
+    struct strg_server *server = toplevel->server;
+
+    server->grabbed_window = malloc(sizeof(struct strg_window));
+    memset(server->grabbed_window, 0, sizeof(struct strg_window));
+    server->grabbed_window->type = STRG_WINDOW_XDG;
+    server->grabbed_window->window = toplevel;
+
+    server->cursor_mode = mode;
+
+    if (mode == STRG_CURSOR_MOVE) {
+        server->grab_x = server->cursor->x - toplevel->scene_tree->node.x;
+        server->grab_y = server->cursor->y - toplevel->scene_tree->node.y;
+    } else {
+        struct wlr_box *geo_box = &toplevel->xdg_toplevel->base->geometry;
+
+        double border_x = (toplevel->scene_tree->node.x + geo_box->x) +
+            ((edges & WLR_EDGE_RIGHT) ? geo_box->width : 0);
+        double border_y = (toplevel->scene_tree->node.y + geo_box->y) +
+            ((edges & WLR_EDGE_BOTTOM) ? geo_box->height : 0);
+        server->grab_x = server->cursor->x - border_x;
+        server->grab_y = server->cursor->y - border_y;
+
+        server->grab_geobox = *geo_box;
+        server->grab_geobox.x += toplevel->scene_tree->node.x;
+        server->grab_geobox.y += toplevel->scene_tree->node.y;
+
+        server->resize_edges = edges;
+    }
 }

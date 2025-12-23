@@ -78,7 +78,6 @@ void xdg_toplevel_create(struct wl_listener *listener, void *data);
 void xdg_popup_commit(struct wl_listener *listener, void *data);
 void xdg_popup_destroy(struct wl_listener *listener, void *data);
 void xdg_popup_create(struct wl_listener *listener, void *data);
-void begin_interactive(struct strg_toplevel *toplevel, enum strg_cursor_mode mode, uint32_t edges);
 void xdg_decoration_request_mode_handler(struct wl_listener *listener, void *data);
 void xdg_new_decoration_handler(struct wl_listener *listener, void *data);
 
