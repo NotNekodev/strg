@@ -57,6 +57,8 @@ void signal_handler(int signum, siginfo_t *info, void* ucontext) {
 
 	wl_list_remove(&server.new_output.link);
 
+	xwl_finish(server.xwayland);
+
 	wlr_scene_node_destroy(&server.scene->tree.node);
 	wlr_xcursor_manager_destroy(server.cursor_mgr);
 	wlr_cursor_destroy(server.cursor);
