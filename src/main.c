@@ -208,11 +208,6 @@ int main(int argc, char *argv[]) {
 
 	wl_display_destroy_clients(server.wl_display);
 
-	wl_list_remove(&server.xwayland->new_surface.link);
-	wl_list_remove(&server.xwayland->ready.link);
-	wl_list_remove(&server.xwayland->remove.link);
-	wlr_xwayland_destroy(server.xwayland->xwayland);
-
 	wl_list_remove(&server.new_xdg_decoration.link);
 
 	wl_list_remove(&server.new_xdg_toplevel.link);
@@ -230,6 +225,8 @@ int main(int argc, char *argv[]) {
 	wl_list_remove(&server.request_set_selection.link);
 
 	wl_list_remove(&server.new_output.link);
+
+	xwl_finish(xwl);
 
 	wlr_scene_node_destroy(&server.scene->tree.node);
 	wlr_xcursor_manager_destroy(server.cursor_mgr);

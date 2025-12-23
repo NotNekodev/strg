@@ -4,6 +4,7 @@
 #include <wlr/util/log.h>
 
 #include "strg/core/protocol/xdg/xdg.h"
+#include "strg/style/decorations.h"
 #include "strg/util/window_util.h"
 
 void xwl_surface_configure(struct strg_xwayland_surface *surface,
@@ -197,4 +198,63 @@ void xwl_begin_interactive(struct strg_xwayland_surface *window, enum strg_curso
 
         server->resize_edges = edges;
     }
+}
+
+void xwl_surface_resize(struct strg_xwayland_surface *surface, const uint32_t edges) {
+    if (!surface->mapped) {
+        return;
+    }
+
+    if (surface->is_maximized) {
+        const double cursor_x = surface->xwl->server->cursor->x;
+        const double cursor_y = surface->xwl->server->cursor->y;
+
+        struct wlr_box current_geo = {
+            .x = surface->xwayland_surface->x,
+            .y = surface->xwayland_surface->y,
+            .width = surface->xwayland_surface->surface->current.width,
+            .height = surface->xwayland_surface->surface->current.height
+        };
+
+        if (current_geo.width == 0 || current_geo.height == 0) {
+            current_geo.width = surface->xwayland_surface->surface->current.width;
+            current_geo.height = surface->xwayland_surface->surface->current.height;
+        }
+
+        const double rel_x = (cursor_x - surface->scene_tree->node.x) / (double)current_geo.width;
+        double rel_y = (cursor_y - surface->scene_tree->node.y) / (double)current_geo.height;
+
+        /*if (surface->type == STRG_DECORATION_SERVER && rel_y < 0) {
+            rel_y = 0.5;
+        }*/
+
+        xwl_surface_set_maximized(surface);
+
+        int new_width = surface->pre_maximize_geometry.width;
+        int new_height = surface->pre_maximize_geometry.height;
+
+        int new_x = cursor_x - (int)(new_width * rel_x);
+        int new_y = cursor_y - (int)(new_height * rel_y);
+
+        /*if (surface->type == STRG_DECORATION_SERVER && cursor_y < surface->scene_tree->node.y) {
+            new_y = cursor_y - TITLEBAR_HEIGHT / 2;
+        }*/
+
+        wlr_scene_node_set_position(&surface->scene_tree->node, new_x, new_y);
+        surface->pre_maximize_geometry.x = new_x;
+        surface->pre_maximize_geometry.y = new_y;
+
+        surface->xwl->server->grabbed_window = malloc(sizeof(struct strg_window));
+        memset(surface->xwl->server->grabbed_window, 0, sizeof(struct strg_window));
+        surface->xwl->server->grabbed_window->type = STRG_WINDOW_XWAYLAND;
+        surface->xwl->server->grabbed_window->window = surface;
+
+        surface->xwl->server->cursor_mode = STRG_CURSOR_MOVE;
+        surface->xwl->server->grab_x = cursor_x - new_x;
+        surface->xwl->server->grab_y = cursor_y - new_y;
+
+        return;
+    }
+
+    xwl_begin_interactive(surface, STRG_CURSOR_RESIZE, edges);
 }

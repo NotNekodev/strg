@@ -1,3 +1,4 @@
+#include <limits.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdio.h>
@@ -12,10 +13,23 @@
 #include <strg/style/decorations.h>
 #include <strg/core/protocol/xdg/xdg_ops.h>
 #include <strg/core/input.h>
-#include <strg/core/protocol/xdg/xdg.h>
 #include <strg/core/protocol/xwayland/xwl.h>
 
 #include "strg/core/protocol/xwayland/xwl_ops.h"
+
+
+int round_double_to_int(double x, int *out) {
+	if (!isfinite(x))
+		return 0;
+
+	long r = lround(x);
+
+	if (r < INT_MIN || r > INT_MAX)
+		return 0;
+
+	*out = (int)r;
+	return 1;
+}
 
 void focus_window(struct strg_window *win) {
     if (!win || !win->window) {
@@ -119,9 +133,6 @@ bool handle_keybinding(struct strg_server *server, xkb_keysym_t sym) {
 			break;
 		}
 		break;
-	case XKB_KEY_F9:
-		wl_display_terminate(server->wl_display);
-		break;
 	default:
 		return false;
 	}
@@ -158,6 +169,7 @@ void keyboard_handle_key(struct wl_listener *listener, void *data) {
 }
 
 void keyboard_handle_destroy(struct wl_listener *listener, void *data) {
+	(void)data;
 	struct strg_keyboard *keyboard = wl_container_of(listener, keyboard, destroy);
 	wl_list_remove(&keyboard->modifiers.link);
 	wl_list_remove(&keyboard->key.link);
@@ -314,15 +326,27 @@ void reset_cursor_mode(struct strg_server *server) {
 
 void process_cursor_move(struct strg_server *server) {
 	if (server->grabbed_window->type == STRG_WINDOW_XDG) {
+		int x;
+		int y;
+
+		round_double_to_int(server->cursor->x - server->grab_x, &x);
+		round_double_to_int(server->cursor->y - server->grab_y, &y);
+
 		struct strg_toplevel *toplevel = server->grabbed_window->window;
 		wlr_scene_node_set_position(&toplevel->scene_tree->node,
-			server->cursor->x - server->grab_x,
-			server->cursor->y - server->grab_y);
+			x,
+			y);
 	} else {
+		int x;
+		int y;
+
+		round_double_to_int(server->cursor->x - server->grab_x, &x);
+		round_double_to_int(server->cursor->y - server->grab_y, &y);
+
 		struct strg_xwayland_surface *surface = server->grabbed_window->window;
 		wlr_scene_node_set_position(&surface->scene_tree->node,
-			server->cursor->x - server->grab_x,
-			server->cursor->y - server->grab_y);
+			x,
+			y);
 	}
 }
 
@@ -337,23 +361,23 @@ void process_cursor_resize(struct strg_server *server) {
 		int new_bottom = server->grab_geobox.y + server->grab_geobox.height;
 
 		if (server->resize_edges & WLR_EDGE_TOP) {
-			new_top = border_y;
+			round_double_to_int(border_y, &new_top);
 			if (new_top >= new_bottom) {
 				new_top = new_bottom - 1;
 			}
 		} else if (server->resize_edges & WLR_EDGE_BOTTOM) {
-			new_bottom = border_y;
+			round_double_to_int(border_y, &new_bottom);
 			if (new_bottom <= new_top) {
 				new_bottom = new_top + 1;
 			}
 		}
 		if (server->resize_edges & WLR_EDGE_LEFT) {
-			new_left = border_x;
+			round_double_to_int(border_x, &new_left);
 			if (new_left >= new_right) {
 				new_left = new_right - 1;
 			}
 		} else if (server->resize_edges & WLR_EDGE_RIGHT) {
-			new_right = border_x;
+			round_double_to_int(border_x, &new_right);
 			if (new_right <= new_left) {
 				new_right = new_left + 1;
 			}
@@ -376,23 +400,23 @@ void process_cursor_resize(struct strg_server *server) {
 		int new_bottom = server->grab_geobox.y + server->grab_geobox.height;
 
 		if (server->resize_edges & WLR_EDGE_TOP) {
-			new_top = border_y;
+			round_double_to_int(border_y, &new_top);
 			if (new_top >= new_bottom) {
 				new_top = new_bottom - 1;
 			}
 		} else if (server->resize_edges & WLR_EDGE_BOTTOM) {
-			new_bottom = border_y;
+			round_double_to_int(border_y, &new_bottom);
 			if (new_bottom <= new_top) {
 				new_bottom = new_top + 1;
 			}
 		}
 		if (server->resize_edges & WLR_EDGE_LEFT) {
-			new_left = border_x;
+			round_double_to_int(border_x, &new_left);
 			if (new_left >= new_right) {
 				new_left = new_right - 1;
 			}
 		} else if (server->resize_edges & WLR_EDGE_RIGHT) {
-			new_right = border_x;
+			round_double_to_int(border_x, &new_right);
 			if (new_right <= new_left) {
 				new_right = new_left + 1;
 			}

@@ -1,7 +1,6 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <strg/core/protocol/xdg/xdg.h>
-#include <wlr/util/edges.h>
 #include <wlr/util/log.h>
 
 #include <strg/style/decorations.h>

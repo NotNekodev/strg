@@ -3,7 +3,6 @@
 
 #include <stdlib.h>
 
-#include <wlr/types/wlr_compositor.h>
 #include <wlr/types/wlr_scene.h>
 #include <wlr/xwayland.h>
 #include <wlr/util/log.h>
@@ -11,6 +10,7 @@
 #include "strg/strg.h"
 
 static void xwl_surface_handle_associate(struct wl_listener *listener, void *data) {
+    (void)data;
     struct strg_xwayland_surface *surface =
         wl_container_of(listener, surface, associate);
 
@@ -33,6 +33,7 @@ static void xwl_surface_handle_associate(struct wl_listener *listener, void *dat
 }
 
 static void xwl_surface_handle_dissociate(struct wl_listener *listener, void *data) {
+    (void)data;
     struct strg_xwayland_surface *surface =
         wl_container_of(listener, surface, dissociate);
 
@@ -46,6 +47,7 @@ static void xwl_surface_handle_dissociate(struct wl_listener *listener, void *da
 }
 
 static void xwl_surface_handle_destroy(struct wl_listener *listener, void *data) {
+    (void)data;
     struct strg_xwayland_surface *surface =
         wl_container_of(listener, surface, destroy);
 
@@ -82,9 +84,8 @@ static void xwl_surface_handle_request_configure(
     );
 }
 
-static void xwl_surface_handle_request_fullscreen(
-    struct wl_listener *listener, void *data)
-{
+static void xwl_surface_handle_request_fullscreen(struct wl_listener *listener, void *data) {
+    (void)data;
     struct strg_xwayland_surface *surface =
         wl_container_of(listener, surface, request_fullscreen);
 
@@ -94,29 +95,26 @@ static void xwl_surface_handle_request_fullscreen(
     );
 }
 
-static void xwl_surface_handle_request_minimize(
-    struct wl_listener *listener, void *data)
-{
+static void xwl_surface_handle_request_minimize(struct wl_listener *listener, void *data) {
+    (void)data;
     struct strg_xwayland_surface *surface =
         wl_container_of(listener, surface, request_minimize);
 }
 
-static void xwl_surface_handle_request_move(
-    struct wl_listener *listener, void *data)
-{
+static void xwl_surface_handle_request_move(struct wl_listener *listener, void *data) {
     struct strg_xwayland_surface *surface =
         wl_container_of(listener, surface, request_resize);
 
     xwl_surface_move(surface);
 }
 
-static void xwl_surface_handle_request_resize(
-    struct wl_listener *listener, void *data)
-{
+static void xwl_surface_handle_request_resize(struct wl_listener *listener, void *data) {
     struct strg_xwayland_surface *surface =
         wl_container_of(listener, surface, request_resize);
 
     struct wlr_xwayland_resize_event *event = data;
+
+    xwl_surface_resize(surface, event->edges);
 }
 
 static void xwl_surface_handle_request_activate(
@@ -226,7 +224,12 @@ static void xwl_handle_ready(struct wl_listener *listener, void *data) {
 }
 
 static void xwl_handle_remove(struct wl_listener *listener, void *data) {
+    struct strg_xwayland *xwl =
+        wl_container_of(listener, xwl, ready);
+
     wlr_log(WLR_INFO, "XWayland server destroyed");
+
+    xwl_finish(xwl);
 }
 
 bool xwl_init(

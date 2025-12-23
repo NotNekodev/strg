@@ -13,5 +13,6 @@ void xwl_surface_set_minimized(struct strg_xwayland_surface *surface, bool minim
 void xwl_surface_set_activated(struct strg_xwayland_surface *surface, bool activated);
 void xwl_begin_interactive(struct strg_xwayland_surface *window, enum strg_cursor_mode mode, uint32_t edges);
 void xwl_surface_move(struct strg_xwayland_surface *surface);
+void xwl_surface_resize(struct strg_xwayland_surface *surface, uint32_t edges);
 
 #endif // STRG_XWL_OPS_H
