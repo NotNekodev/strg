@@ -249,7 +249,7 @@ void xwl_surface_resize(struct strg_xwayland_surface *surface, const uint32_t ed
         surface->xwl->server->grabbed_window->type = STRG_WINDOW_XWAYLAND;
         surface->xwl->server->grabbed_window->window = surface;
 
-        surface->xwl->server->cursor_mode = STRG_CURSOR_MOVE;
+        surface->xwl->server->cursor_mode = STRG_CURSOR_RESIZE;
         surface->xwl->server->grab_x = cursor_x - new_x;
         surface->xwl->server->grab_y = cursor_y - new_y;
 

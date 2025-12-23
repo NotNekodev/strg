@@ -17,6 +17,54 @@
 
 #include "strg/core/protocol/xwayland/xwl_ops.h"
 
+uint32_t calculate_resize_edges(struct strg_window *window, double cursor_x, double cursor_y) {
+	uint32_t edges = 0;
+
+	if (window->type == STRG_WINDOW_XDG) {
+		struct strg_toplevel *toplevel = window->window;
+		struct wlr_box geo = toplevel->xdg_toplevel->base->geometry;
+
+		if (geo.width == 0) geo.width = toplevel->xdg_toplevel->base->surface->current.width;
+		if (geo.height == 0) geo.height = toplevel->xdg_toplevel->base->surface->current.height;
+
+		double local_x = cursor_x - toplevel->scene_tree->node.x - geo.x;
+		double local_y = cursor_y - toplevel->scene_tree->node.y - geo.y;
+
+		double rel_x = local_x / geo.width;
+		double rel_y = local_y / geo.height;
+
+		if (rel_x < 0.33) edges |= WLR_EDGE_LEFT;
+		else if (rel_x > 0.67) edges |= WLR_EDGE_RIGHT;
+
+		if (rel_y < 0.33) edges |= WLR_EDGE_TOP;
+		else if (rel_y > 0.67) edges |= WLR_EDGE_BOTTOM;
+
+	} else if (window->type == STRG_WINDOW_XWAYLAND) {
+		struct strg_xwayland_surface *surface = window->window;
+
+		double local_x = cursor_x - surface->scene_tree->node.x;
+		double local_y = cursor_y - surface->scene_tree->node.y;
+
+		int width = surface->xwayland_surface->surface->current.width;
+		int height = surface->xwayland_surface->surface->current.height;
+
+		double rel_x = local_x / width;
+		double rel_y = local_y / height;
+
+		if (rel_x < 0.33) edges |= WLR_EDGE_LEFT;
+		else if (rel_x > 0.67) edges |= WLR_EDGE_RIGHT;
+
+		if (rel_y < 0.33) edges |= WLR_EDGE_TOP;
+		else if (rel_y > 0.67) edges |= WLR_EDGE_BOTTOM;
+	}
+
+	// Default to bottom-right if no edges detected
+	if (edges == 0) {
+		edges = WLR_EDGE_BOTTOM | WLR_EDGE_RIGHT;
+	}
+
+	return edges;
+}
 
 int round_double_to_int(double x, int *out) {
 	if (!isfinite(x))
@@ -564,7 +612,23 @@ void server_cursor_button(struct wl_listener *listener, void *data) {
 		}
 
 		return;
+	}
+	if (event->state == WL_POINTER_BUTTON_STATE_PRESSED &&
+		event->button == BTN_RIGHT &&
+		(modifiers & WLR_MODIFIER_ALT) &&
+		window) {
+		focus_window(window);
+
+		uint32_t edges = calculate_resize_edges(window, server->cursor->x, server->cursor->y);
+
+		if (window->type == STRG_WINDOW_XDG) {
+			xdg_window_resize(window->window, edges);
+		} else if (window->type == STRG_WINDOW_XWAYLAND) {
+			xwl_surface_resize(window->window, edges);
 		}
+
+		return;
+	}
 
 	wlr_seat_pointer_notify_button(server->seat,
 								   event->time_msec,

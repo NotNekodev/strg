@@ -5,7 +5,7 @@
 
 void xdg_window_maximize(struct strg_toplevel *toplevel);
 void xdg_window_move(struct strg_toplevel *toplevel);
-void xdg_window_resize(struct strg_toplevel *toplevel);
+void xdg_window_resize(struct strg_toplevel *toplevel, uint32_t edges);
 void xdg_window_fullscreen(struct strg_toplevel *toplevel);
 
 void xdg_window_map(struct strg_toplevel *toplevel);

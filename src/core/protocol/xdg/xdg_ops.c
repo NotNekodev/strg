@@ -112,7 +112,7 @@ void xdg_window_move(struct strg_toplevel *toplevel) {
 }
 
 
-void xdg_window_resize(struct strg_toplevel *toplevel) {
+void xdg_window_resize(struct strg_toplevel *toplevel, uint32_t edges) {
     if (toplevel->is_maximized) {
         const double cursor_x = toplevel->server->cursor->x;
         const double cursor_y = toplevel->server->cursor->y;
@@ -158,7 +158,7 @@ void xdg_window_resize(struct strg_toplevel *toplevel) {
         return;
     }
 
-    xdg_begin_interactive(toplevel, STRG_CURSOR_RESIZE, 0);
+    xdg_begin_interactive(toplevel, STRG_CURSOR_RESIZE, edges);
 }
 
 void xdg_window_fullscreen(struct strg_toplevel *toplevel) {
@@ -220,16 +220,21 @@ void xdg_begin_interactive(struct strg_toplevel *toplevel, enum strg_cursor_mode
         server->grab_x = server->cursor->x - toplevel->scene_tree->node.x;
         server->grab_y = server->cursor->y - toplevel->scene_tree->node.y;
     } else {
-        struct wlr_box *geo_box = &toplevel->xdg_toplevel->base->geometry;
+        struct wlr_box geo_box = toplevel->xdg_toplevel->base->geometry;
 
-        double border_x = (toplevel->scene_tree->node.x + geo_box->x) +
-            ((edges & WLR_EDGE_RIGHT) ? geo_box->width : 0);
-        double border_y = (toplevel->scene_tree->node.y + geo_box->y) +
-            ((edges & WLR_EDGE_BOTTOM) ? geo_box->height : 0);
+        if (geo_box.width == 0 || geo_box.height == 0) {
+            geo_box.width = toplevel->xdg_toplevel->base->surface->current.width;
+            geo_box.height = toplevel->xdg_toplevel->base->surface->current.height;
+        }
+
+        double border_x = (toplevel->scene_tree->node.x + geo_box.x) +
+            ((edges & WLR_EDGE_RIGHT) ? geo_box.width : 0);
+        double border_y = (toplevel->scene_tree->node.y + geo_box.y) +
+            ((edges & WLR_EDGE_BOTTOM) ? geo_box.height : 0);
         server->grab_x = server->cursor->x - border_x;
         server->grab_y = server->cursor->y - border_y;
 
-        server->grab_geobox = *geo_box;
+        server->grab_geobox = geo_box;
         server->grab_geobox.x += toplevel->scene_tree->node.x;
         server->grab_geobox.y += toplevel->scene_tree->node.y;
 

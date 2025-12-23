@@ -158,7 +158,7 @@ void xdg_toplevel_request_resize(struct wl_listener *listener, void *data) {
 	struct wlr_xdg_toplevel_resize_event *event = data;
 	struct strg_toplevel *toplevel = wl_container_of(listener, toplevel, request_resize);
 
-	xdg_window_resize(toplevel);
+	xdg_window_resize(toplevel, event->edges);
 }
 
 void xdg_toplevel_request_maximize(struct wl_listener *listener, void *data) {
