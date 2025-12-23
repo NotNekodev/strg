@@ -24,9 +24,9 @@ srcs = files(
     'src/main.c',
     'src/core/input.c',
     'src/core/output.c',
-    'src/core/xdg_shell.c',
+    'src/core/protocol/xdg/xdg.c',
+    'src/core/protocol/xdg/xdg_ops.c',
     'src/style/decorations.c',
-    'src/core/window_function.c',
     'src/util/sigutil.c',
     'src/util/window_util.c'
 )

@@ -49,28 +49,7 @@ void xdg_toplevel_map(struct wl_listener *listener, void *data) {
 	struct strg_toplevel *toplevel =
 		wl_container_of(listener, toplevel, map);
 
-	wl_list_insert(&toplevel->server->toplevels, &toplevel->link);
-
-	wlr_scene_node_set_position(
-		&toplevel->scene_tree->node, 500, 500
-	);
-
-	if (!toplevel->has_xdg_decoration) {
-		toplevel->type = STRG_DECORATION_CLIENT;
-		goto done;
-	}
-
-	if (toplevel->decoration_pref == STRG_DECORATION_PREF_CLIENT) {
-		toplevel->type = STRG_DECORATION_CLIENT;
-		goto done;
-	}
-
-	toplevel->type = STRG_DECORATION_SERVER;
-	create_decorations(toplevel);
-	toplevel->decorations_applied = true;
-
-	done:
-		focus_toplevel(toplevel);
+	xdg_window_map(toplevel);
 }
 
 
@@ -78,11 +57,7 @@ void xdg_toplevel_unmap(struct wl_listener *listener, void *data) {
 	(void)data;
 	struct strg_toplevel *toplevel = wl_container_of(listener, toplevel, unmap);
 
-	if (toplevel == toplevel->server->grabbed_toplevel) {
-		reset_cursor_mode(toplevel->server);
-	}
-
-	wl_list_remove(&toplevel->link);
+	xdg_window_unmap(toplevel);
 }
 
 void xdg_toplevel_commit(struct wl_listener *listener, void *data) {
@@ -204,13 +179,14 @@ void xdg_toplevel_request_move(struct wl_listener *listener, void *data) {
 	(void)data;
 	struct strg_toplevel *toplevel = wl_container_of(listener, toplevel, request_move);
 
-	window_move(toplevel);
+	xdg_window_move(toplevel);
 }
 
 void xdg_toplevel_request_resize(struct wl_listener *listener, void *data) {
 	struct wlr_xdg_toplevel_resize_event *event = data;
 	struct strg_toplevel *toplevel = wl_container_of(listener, toplevel, request_resize);
-	begin_interactive(toplevel, STRG_CURSOR_RESIZE, event->edges);
+
+	xdg_window_resize(toplevel);
 }
 
 void xdg_toplevel_request_maximize(struct wl_listener *listener, void *data) {
@@ -219,7 +195,7 @@ void xdg_toplevel_request_maximize(struct wl_listener *listener, void *data) {
 	struct strg_toplevel *toplevel =
 		wl_container_of(listener, toplevel, request_maximize);
 
-	window_maximize(toplevel);
+	xdg_window_maximize(toplevel);
 }
 
 void xdg_toplevel_request_fullscreen(struct wl_listener *listener, void *data) {
@@ -227,9 +203,8 @@ void xdg_toplevel_request_fullscreen(struct wl_listener *listener, void *data) {
 	/* Just as with request_maximize, we must send a configure here. */
 	struct strg_toplevel *toplevel =
 		wl_container_of(listener, toplevel, request_fullscreen);
-	if (toplevel->xdg_toplevel->base->initialized) {
-		wlr_xdg_surface_schedule_configure(toplevel->xdg_toplevel->base);
-	}
+
+	xdg_window_fullscreen(toplevel);
 }
 
 void xdg_configure_configure(struct wl_listener *listener, void *data) {

@@ -372,7 +372,7 @@ void server_cursor_button(struct wl_listener *listener, void *data) {
             }
 
             if (is_click_on_maximize_button(toplevel, server->cursor->x, server->cursor->y)) {
-            	window_maximize(toplevel);
+            	xdg_window_maximize(toplevel);
                 return;
             }
 
@@ -383,7 +383,7 @@ void server_cursor_button(struct wl_listener *listener, void *data) {
 
             if (is_click_on_titlebar(toplevel, server->cursor->x, server->cursor->y)) {
                 focus_toplevel(toplevel);
-            	window_move(toplevel);
+            	xdg_window_move(toplevel);
                 return;
             }
         }
@@ -399,7 +399,7 @@ void server_cursor_button(struct wl_listener *listener, void *data) {
         (modifiers & WLR_MODIFIER_ALT) &&
         toplevel) {
         focus_toplevel(toplevel);
-    	window_move(toplevel);
+    	xdg_window_move(toplevel);
         return;
     }
 
