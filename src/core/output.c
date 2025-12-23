@@ -1,6 +1,8 @@
 #include <stdlib.h>
-#include <strg/output.h>
+
 #include <wlr/util/log.h>
+
+#include <strg/core/output.h>
 
 void output_frame(struct wl_listener *listener, void *data) {
 	(void)data;

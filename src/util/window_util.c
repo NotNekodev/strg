@@ -1,7 +1,7 @@
 #include <strg/util/window_util.h>
 #include <wlr/backend.h>
 
-#include "strg/decorations.h"
+#include <strg/style/decorations.h>
 
 struct wlr_output *get_dominant_output(struct strg_toplevel *toplevel) {
     struct wlr_output_layout *layout = toplevel->server->output_layout;

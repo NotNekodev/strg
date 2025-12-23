@@ -1,3 +1,5 @@
+// this is kinda like main.c but as a header, thats why it isnt a a subdirectory
+
 #ifndef STRG_STRG_H
 #define STRG_STRG_H
 

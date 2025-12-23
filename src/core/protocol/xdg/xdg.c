@@ -1,12 +1,12 @@
 #include <assert.h>
 #include <stdlib.h>
-#include <strg/xdg_shell.h>
+#include <strg/core/protocol/xdg/xdg.h>
 #include <wlr/util/edges.h>
 #include <wlr/util/log.h>
 
-#include "strg/decorations.h"
-#include "strg/input.h"
-#include "strg/window_function.h"
+#include <strg/style/decorations.h>
+#include <strg/core/input.h>
+#include <strg/core/protocol/xdg/xdg_ops.h>
 
 void xdg_decoration_surface_commit_handler(struct wl_listener *listener, void *data) {
 	(void)data;

@@ -1,7 +1,7 @@
 #ifndef STRG_WINDOW_UTIL_H
 #define STRG_WINDOW_UTIL_H
 
-#include <strg/xdg_shell.h>
+#include <strg/core/protocol/xdg/xdg.h>
 
 struct wlr_output *get_dominant_output(struct strg_toplevel *toplevel);
 

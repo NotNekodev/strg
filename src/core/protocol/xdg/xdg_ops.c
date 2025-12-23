@@ -1,7 +1,6 @@
-#include <strg/window_function.h>
-
-#include "strg/decorations.h"
-#include "strg/util/window_util.h"
+#include <strg/core/protocol/xdg/xdg_ops.h>
+#include <strg/style/decorations.h>
+#include <strg/util/window_util.h>
 
 void window_maximize(struct strg_toplevel *toplevel) {
     if (!toplevel->xdg_toplevel->base->initialized) {

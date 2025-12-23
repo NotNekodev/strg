@@ -1,14 +1,16 @@
 #include <stdlib.h>
 #include <unistd.h>
-#include <strg/input.h>
-#include <strg/xdg_shell.h>
+#include <stdio.h>
+
 #include <wlr/types/wlr_data_device.h>
 #include <wlr/util/edges.h>
-#include <stdio.h>
+
 #include <linux/input-event-codes.h>
 
-#include "strg/decorations.h"
-#include "strg/window_function.h"
+#include <strg/style/decorations.h>
+#include <strg/core/protocol/xdg/xdg_ops.h>
+#include <strg/core/input.h>
+#include <strg/core/protocol/xdg/xdg.h>
 
 void focus_toplevel(struct strg_toplevel *toplevel) {
 	if (toplevel == NULL) {

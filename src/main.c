@@ -21,11 +21,11 @@
 #include <wlr/util/log.h>
 
 #include <strg/strg.h>
-#include <strg/xdg_shell.h>
-#include <strg/input.h>
-#include <strg/output.h>
+#include <strg/core/protocol/xdg/xdg.h>
+#include <strg/core/input.h>
+#include <strg/core/output.h>
 
-#include "strg/util/sigutil.h"
+#include <strg/util/sigutil.h>
 
 struct strg_server server = {0};
 

@@ -1,14 +1,18 @@
-#include <strg/decorations.h>
+#include <string.h>
+#include <stdlib.h>
+
 #include <wlr/types/wlr_xdg_shell.h>
 #include <wlr/render/wlr_renderer.h>
 #include <wlr/types/wlr_buffer.h>
 #include <wlr/interfaces/wlr_buffer.h>
+
+#include <drm_fourcc.h>
+
 #include <cairo/cairo.h>
 #include <pango/pangocairo.h>
-#include <string.h>
-#include <stdlib.h>
-#include <drm_fourcc.h>
-#include "strg/xdg_shell.h"
+
+#include <strg/core/protocol/xdg/xdg.h>
+#include <strg/style/decorations.h>
 
 struct cairo_buffer {
     struct wlr_buffer base;

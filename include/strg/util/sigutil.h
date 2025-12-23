@@ -3,7 +3,6 @@
 
 // this exists simply because i wanted to use a GNU extension without using GNU extensions (the function is sigabbrev_np)
 
-
 struct sig_name {
     int sig;
     const char *name;
