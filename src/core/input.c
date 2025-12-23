@@ -16,6 +16,7 @@
 #include <strg/core/protocol/xwayland/xwl.h>
 
 #include "strg/core/protocol/xwayland/xwl_ops.h"
+#include <strg/util/mutil.h>
 
 uint32_t calculate_resize_edges(struct strg_window *window, double cursor_x, double cursor_y) {
 	uint32_t edges = 0;
@@ -64,19 +65,6 @@ uint32_t calculate_resize_edges(struct strg_window *window, double cursor_x, dou
 	}
 
 	return edges;
-}
-
-int round_double_to_int(double x, int *out) {
-	if (!isfinite(x))
-		return 0;
-
-	long r = lround(x);
-
-	if (r < INT_MIN || r > INT_MAX)
-		return 0;
-
-	*out = (int)r;
-	return 1;
 }
 
 void focus_window(struct strg_window *win) {
