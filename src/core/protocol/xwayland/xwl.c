@@ -270,8 +270,7 @@ void xwl_finish(struct strg_xwayland *xwl) {
 
     wl_list_remove(&xwl->new_surface.link);
     wl_list_remove(&xwl->ready.link);
-    wl_list_remove(&xwl->remove.link);
 
-    wlr_xwayland_destroy(xwl->xwayland);
+    wl_list_remove(&xwl->remove.link);
     xwl->xwayland = NULL;
 }

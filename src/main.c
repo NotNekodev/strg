@@ -1,4 +1,3 @@
-#include <assert.h>
 #include <signal.h>
 #include <stdbool.h>
 #include <stdlib.h>
@@ -18,7 +17,6 @@
 #include <wlr/types/wlr_subcompositor.h>
 #include <wlr/types/wlr_xcursor_manager.h>
 #include <wlr/types/wlr_xdg_shell.h>
-#include <wlr/util/log.h>
 
 #include <strg/strg.h>
 #include <strg/core/protocol/xdg/xdg.h>
@@ -28,16 +26,29 @@
 #include <strg/util/sigutil.h>
 
 #include "strg/core/protocol/xwayland/xwl.h"
+#include "strg/util/logutil.h"
 
 struct strg_server server = {0};
 
-void signal_handler(int signum, siginfo_t *info, void* ucontext) {
+void signal_handler(int signum, siginfo_t *info, void *ucontext) {
 	(void)info;
 	(void)ucontext;
 	wlr_log(WLR_ERROR, "Caught signal %s (%d), shutting down!", sig_to_string(signum), signum);
+
 	wl_display_terminate(server.wl_display);
 
 	wl_display_destroy_clients(server.wl_display);
+	xwl_finish(server.xwayland);
+	free(server.xwayland);
+
+	struct strg_keyboard *kb, *tmp;
+	wl_list_for_each_safe(kb, tmp, &server.keyboards, link) {
+		wl_list_remove(&kb->modifiers.link);
+		wl_list_remove(&kb->key.link);
+		wl_list_remove(&kb->destroy.link);
+		wl_list_remove(&kb->link);
+		free(kb);
+	}
 
 	wl_list_remove(&server.new_xdg_decoration.link);
 
@@ -57,35 +68,41 @@ void signal_handler(int signum, siginfo_t *info, void* ucontext) {
 
 	wl_list_remove(&server.new_output.link);
 
-	xwl_finish(server.xwayland);
-
 	wlr_scene_node_destroy(&server.scene->tree.node);
 	wlr_xcursor_manager_destroy(server.cursor_mgr);
 	wlr_cursor_destroy(server.cursor);
 	wlr_allocator_destroy(server.allocator);
 	wlr_renderer_destroy(server.renderer);
-	wlr_backend_destroy(server.backend);
 	wl_display_destroy(server.wl_display);
+
+	strg_shutdown_logging();
 
 	exit(EXIT_FAILURE);
 }
 
 int main(int argc, char *argv[]) {
-	wlr_log_init(WLR_DEBUG, NULL);
 	char *kb_layout = "us"; // default
+	char *logfile = "strg.log";
+	// todo: actually implement a config option for all this
 
 	int c;
-	while ((c = getopt(argc, argv, "k:")) != -1) {
+	while ((c = getopt(argc, argv, "k:l:")) != -1) {
 		if (c == 'k') {
 			kb_layout = optarg;
+		} else if (c == 'l') {
+			logfile = optarg;
 		} else {
-			printf("Usage: %s [-k keyboard layout]\n", argv[0]);
+			printf("Usage: %s [-k keyboard layout] [-l log file]\n", argv[0]);
 		}
 	}
 	if (optind < argc) {
-		printf("Usage: %s [-k keyboard layout]\n", argv[0]);
+		printf("Usage: %s [-k keyboard layout] [-l log file]\n", argv[0]);
 		return 0;
 	}
+
+	clock_gettime(CLOCK_MONOTONIC, &server.start);
+
+	strg_init_logging(logfile);
 
 	struct sigaction sa = {0};
 	sa.sa_sigaction = signal_handler;
@@ -101,6 +118,9 @@ int main(int argc, char *argv[]) {
 		wlr_log(WLR_ERROR, "failed to create wlr_backend");
 		return 1;
 	}
+
+	server.event_loop = wl_display_get_event_loop(server.wl_display);
+	strg_init_stderr_ev_loop_wl(server.event_loop);
 
 	server.renderer = wlr_renderer_autocreate(server.backend);
 	if (server.renderer == NULL) {
@@ -209,6 +229,17 @@ int main(int argc, char *argv[]) {
 	wl_display_run(server.wl_display);
 
 	wl_display_destroy_clients(server.wl_display);
+	xwl_finish(xwl);
+	free(xwl);
+
+	struct strg_keyboard *kb, *tmp;
+	wl_list_for_each_safe(kb, tmp, &server.keyboards, link) {
+		wl_list_remove(&kb->modifiers.link);
+		wl_list_remove(&kb->key.link);
+		wl_list_remove(&kb->destroy.link);
+		wl_list_remove(&kb->link);
+		free(kb);
+	}
 
 	wl_list_remove(&server.new_xdg_decoration.link);
 
@@ -228,17 +259,14 @@ int main(int argc, char *argv[]) {
 
 	wl_list_remove(&server.new_output.link);
 
-	xwl_finish(xwl);
-
 	wlr_scene_node_destroy(&server.scene->tree.node);
 	wlr_xcursor_manager_destroy(server.cursor_mgr);
 	wlr_cursor_destroy(server.cursor);
 	wlr_allocator_destroy(server.allocator);
 	wlr_renderer_destroy(server.renderer);
-	wlr_backend_destroy(server.backend);
 	wl_display_destroy(server.wl_display);
 
-	free(xwl);
+	strg_shutdown_logging();
 
 	return 0;
 }

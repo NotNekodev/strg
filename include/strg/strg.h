@@ -12,6 +12,8 @@
 #include <wlr/types/wlr_seat.h>
 #include <wlr/types/wlr_xdg_shell.h>
 #include <wlr/types/wlr_xdg_decoration_v1.h>
+#include <wlr/util/log.h>
+#include <time.h>
 
 enum strg_cursor_mode {
     STRG_CURSOR_PASSTHROUGH,
@@ -31,6 +33,7 @@ struct strg_window {
 
 struct strg_server {
     struct wl_display *wl_display;
+    struct wl_event_loop *event_loop;
     struct strg_xwayland *xwayland;
     struct wlr_backend *backend;
     struct wlr_renderer *renderer;
@@ -71,6 +74,11 @@ struct strg_server {
     struct wl_listener new_xdg_decoration;
 
     char *kb_layout;
+
+    int logfile_fd;
+    struct timespec start; // time when the compositor started
 };
+
+void strg_wlr_log_callback(enum wlr_log_importance importance, const char *fmt, va_list args);
 
 #endif //STRG_STRG_H
