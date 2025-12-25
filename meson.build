@@ -29,9 +29,12 @@ srcs = files(
     'src/core/protocol/xwayland/xwl.c',
     'src/core/protocol/xwayland/xwl_ops.c',
     'src/style/decorations.c',
+    'src/config/config.c',
+    'src/config/lua_funcs.c',
     'src/util/sigutil.c',
     'src/util/window_util.c',
-    'src/util/logutil.c'
+    'src/util/logutil.c',
+    'src/util/dynarray.c',
 )
 
 xdg_shell_xml = '/usr/share/wayland-protocols/stable/xdg-shell/xdg-shell.xml'

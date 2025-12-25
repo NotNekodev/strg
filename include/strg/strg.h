@@ -77,6 +77,8 @@ struct strg_server {
 
     int logfile_fd;
     struct timespec start; // time when the compositor started
+
+    struct strg_config *config;
 };
 
 void strg_wlr_log_callback(enum wlr_log_importance importance, const char *fmt, va_list args);

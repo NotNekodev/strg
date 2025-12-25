@@ -25,6 +25,7 @@
 
 #include <strg/util/sigutil.h>
 
+#include "strg/config/config.h"
 #include "strg/core/protocol/xwayland/xwl.h"
 #include "strg/util/logutil.h"
 
@@ -83,26 +84,35 @@ void signal_handler(int signum, siginfo_t *info, void *ucontext) {
 int main(int argc, char *argv[]) {
 	char *kb_layout = "us"; // default
 	char *logfile = "strg.log";
+	char *config_file = "~/.config/strg/config.lua";
 	// todo: actually implement a config option for all this
 
 	int c;
-	while ((c = getopt(argc, argv, "k:l:")) != -1) {
+	while ((c = getopt(argc, argv, "k:l:c:")) != -1) {
 		if (c == 'k') {
 			kb_layout = optarg;
 		} else if (c == 'l') {
 			logfile = optarg;
+		} else if (c == 'c') {
+			config_file = optarg;
 		} else {
-			printf("Usage: %s [-k keyboard layout] [-l log file]\n", argv[0]);
+			printf("Usage: %s [-k keyboard layout] [-l log file] [-c config file]\n", argv[0]);
 		}
 	}
 	if (optind < argc) {
-		printf("Usage: %s [-k keyboard layout] [-l log file]\n", argv[0]);
+		printf("Usage: %s [-k keyboard layout] [-l log file] [-c config file]\n", argv[0]);
 		return 0;
 	}
 
 	clock_gettime(CLOCK_MONOTONIC, &server.start);
 
 	strg_init_logging(logfile);
+
+	struct strg_config *conf = strg_config_load(config_file, &server);
+	if (!conf) {
+		wlr_log(WLR_ERROR, "failed to load config file");
+		return 1;
+	}
 
 	struct sigaction sa = {0};
 	sa.sa_sigaction = signal_handler;
