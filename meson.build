@@ -16,7 +16,7 @@ wayland_scanner = find_program('wayland-scanner')
 cairo = dependency('cairo')
 pango = dependency('pango')
 pangocairo = dependency('pangocairo')
-
+lua = dependency('lua')
 
 inc = include_directories('include')
 
@@ -60,6 +60,7 @@ executable(
         cairo,
         pango,
         pangocairo,
+        lua,
     ],
     install : true
 )
