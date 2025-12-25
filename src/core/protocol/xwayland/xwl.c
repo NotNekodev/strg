@@ -103,7 +103,9 @@ static void xwl_surface_handle_request_minimize(struct wl_listener *listener, vo
 
 static void xwl_surface_handle_request_move(struct wl_listener *listener, void *data) {
     struct strg_xwayland_surface *surface =
-        wl_container_of(listener, surface, request_resize);
+        wl_container_of(listener, surface, request_move);
+
+    wlr_xwayland_surface_activate(surface->xwayland_surface, true);
 
     xwl_surface_move(surface);
 }

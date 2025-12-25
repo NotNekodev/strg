@@ -157,18 +157,54 @@ bool handle_keybinding(struct strg_server *server, xkb_keysym_t sym) {
 			.window = next_toplevel
 		});
 		break;
-	case XKB_KEY_F2:
-		pid_t pid = fork();
+	case XKB_KEY_F2: {
+		const char *terminals[] = {
+			"x-terminal-emulator",
+			"gnome-terminal",
+			"konsole",
+			"xfce4-terminal",
+			"alacritty",
+			"kitty",
+			"wezterm",
+			"foot",
+			"st",
+			"xterm",
+			"weston-terminal",
+			NULL
+		};
 
-		if (pid < 0) {
-			perror("fork");
-			break;
-		} else if (pid == 0) {
-			execl("/bin/weston-terminal", "weston-terminal", NULL);
-			perror("execl");
-			break;
+		bool next_term = true;
+		int index = 0;
+
+		while (next_term) {
+			next_term = false;
+			index++;
+			pid_t pid = fork();
+
+			if (pid < 0) {
+				perror("fork");
+				next_term = true;
+				break;
+			}
+
+			if (pid == 0) {
+				if (!terminals[index]) {
+					next_term = true;
+					continue;
+				}
+
+				setsid();
+
+				execlp(terminals[index], (char *)terminals[index], NULL );
+
+				next_term = true;
+				perror("execlp");
+				_exit(1);
+			}
 		}
 		break;
+	}
+
 	default:
 		return false;
 	}
