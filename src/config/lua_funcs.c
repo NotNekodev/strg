@@ -10,6 +10,68 @@
 
 #include <strg/util/keyutil.h>
 
+static int keyboard_index(lua_State *L) {
+    struct strg_config *config = lua_touserdata(L, lua_upvalueindex(1));
+    const char *key = luaL_checkstring(L, 2);
+
+    if (strcmp(key, "layout") == 0) {
+        lua_pushstring(L, config->kb_conf.layout);
+        return 1;
+    }
+    if (strcmp(key, "rule") == 0) {
+        lua_pushstring(L, config->kb_conf.rule);
+        return 1;
+    }
+    if (strcmp(key, "model") == 0) {
+        lua_pushstring(L, config->kb_conf.model);
+        return 1;
+    }
+    if (strcmp(key, "variant") == 0) {
+        lua_pushstring(L, config->kb_conf.variant);
+        return 1;
+    }
+    if (strcmp(key, "options") == 0) {
+        lua_pushstring(L, config->kb_conf.options);
+        return 1;
+    }
+
+    return luaL_error(L, "Unknown field '%s' in keyboard", key);
+}
+
+static int keyboard_newindex(lua_State *L) {
+    struct strg_config *config = lua_touserdata(L, lua_upvalueindex(1));
+    const char *key = luaL_checkstring(L, 2);
+    const char *val = luaL_checkstring(L, 3);
+
+    if (strcmp(key, "layout") == 0) {
+        strncpy(config->kb_conf.layout, val, sizeof(config->kb_conf.layout)-1);
+        config->kb_conf.layout[sizeof(config->kb_conf.layout)-1] = '\0';
+        return 0;
+    }
+    if (strcmp(key, "rule") == 0) {
+        strncpy(config->kb_conf.rule, val, sizeof(config->kb_conf.rule)-1);
+        config->kb_conf.rule[sizeof(config->kb_conf.rule)-1] = '\0';
+        return 0;
+    }
+    if (strcmp(key, "model") == 0) {
+        strncpy(config->kb_conf.model, val, sizeof(config->kb_conf.model)-1);
+        config->kb_conf.model[sizeof(config->kb_conf.model)-1] = '\0';
+        return 0;
+    }
+    if (strcmp(key, "variant") == 0) {
+        strncpy(config->kb_conf.variant, val, sizeof(config->kb_conf.variant)-1);
+        config->kb_conf.variant[sizeof(config->kb_conf.variant)-1] = '\0';
+        return 0;
+    }
+    if (strcmp(key, "options") == 0) {
+        strncpy(config->kb_conf.options, val, sizeof(config->kb_conf.options)-1);
+        config->kb_conf.options[sizeof(config->kb_conf.options)-1] = '\0';
+        return 0;
+    }
+
+    return luaL_error(L, "Unknown or read-only field '%s' in keyboard", key);
+}
+
 int strg_lua_funcs_register(lua_State *L, struct strg_config *config) {
     lua_pushlightuserdata(L, config);
     lua_pushcclosure(L, strg_set_keybind, 1);
@@ -17,6 +79,23 @@ int strg_lua_funcs_register(lua_State *L, struct strg_config *config) {
 
     lua_pushcfunction(L, strg_spawn);
     lua_setglobal(L, "spawn");
+
+	// config table stuff
+	lua_newtable(L);
+
+    lua_newtable(L); 
+	lua_newtable(L);
+	lua_pushlightuserdata(L, config);
+    lua_pushcclosure(L, keyboard_index, 1);
+    lua_setfield(L, -2, "__index");
+    lua_pushlightuserdata(L, config);
+    lua_pushcclosure(L, keyboard_newindex, 1);
+    lua_setfield(L, -2, "__newindex");
+
+    lua_setmetatable(L, -2);
+    lua_setfield(L, -2, "keyboard"); 
+
+    lua_setglobal(L, "opt");
 
     return 0;
 }

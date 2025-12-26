@@ -24,11 +24,20 @@ struct strg_keybind {
 	} keycode;
 };
 
+struct strg_keyboard_config { 
+	char layout[8]; // default is "us"
+	char rule[32]; // like "evdev" (which is the default)
+	char model[32]; // default is "pc105"
+	char variant[64]; // default is literally NULL (is that even possible with an array?)
+	char options[128]; // default option(s) is/are "grp:alt_shift_toggle"
+};
+
 struct strg_config {
     struct dynarray *keybinds; // of struct strg_keybind
     lua_State *L; // needed to free the lua callback ref
     struct strg_server *server;
 	xkb_keysym_t *mod; // if its like not Mod1 but just mod
+	struct strg_keyboard_config kb_conf;
 };
 
 struct strg_config *strg_config_load(const char *filepath, struct strg_server *server);

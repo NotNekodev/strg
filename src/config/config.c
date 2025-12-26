@@ -10,6 +10,12 @@ struct strg_config *strg_config_load(const char *filepath, struct strg_server *s
 
 	config->keybinds = dynarray_create();
 
+	strcpy(config->kb_conf.layout, "us");
+	strcpy(config->kb_conf.rule, "evdev");
+	strcpy(config->kb_conf.model, "pc105");
+	strcpy(config->kb_conf.variant, "\0");
+	strcpy(config->kb_conf.options, "grp:");
+
     lua_State *L = luaL_newstate();
     luaL_openlibs(L);
 
