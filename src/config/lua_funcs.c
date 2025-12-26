@@ -118,5 +118,7 @@ int strg_set_keybind(lua_State *L) {
 
     dynarray_add(config->keybinds, keybind);
 
+	wlr_log(WLR_INFO, "Bound key combination %s to lua reference %d", key, ref);
+
     return 0;
 }

@@ -16,6 +16,7 @@ struct strg_config {
     struct dynarray *keybinds; // of struct strg_keybind
     lua_State *L; // needed to free the lua callback ref
     struct strg_server *server;
+	xkb_keysym_t *mod; // if its like not Mod1 but just mod
 };
 
 struct strg_config *strg_config_load(const char *filepath, struct strg_server *server);

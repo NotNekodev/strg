@@ -8,6 +8,8 @@
 struct strg_config *strg_config_load(const char *filepath, struct strg_server *server) {
     struct strg_config *config = malloc(sizeof(struct strg_config));
 
+	config->keybinds = dynarray_create();
+
     lua_State *L = luaL_newstate();
     luaL_openlibs(L);
 
