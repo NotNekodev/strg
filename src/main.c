@@ -116,6 +116,13 @@ int main(int argc, char *argv[]) {
 	sigaction(SIGINT, &sa, NULL);
 
 	server.wl_display = wl_display_create();
+	
+	struct strg_config *conf = strg_config_load(config_file, &server);
+	if (!conf) {
+		wlr_log(WLR_ERROR, "failed to load config file");
+		return 1;
+	}
+
 	server.kb_layout = kb_layout;
 
 	server.backend = wlr_backend_autocreate(wl_display_get_event_loop(server.wl_display), NULL);
@@ -230,13 +237,7 @@ int main(int argc, char *argv[]) {
 	setenv("WAYLAND_DISPLAY", socket, true);
 
 	wlr_log(WLR_INFO, "Running Wayland compositor on WAYLAND_DISPLAY=%s",
-			socket);
-	
-	struct strg_config *conf = strg_config_load(config_file, &server);
-	if (!conf) {
-		wlr_log(WLR_ERROR, "failed to load config file");
-		return 1;
-	}
+			socket);	
 
 	wl_display_run(server.wl_display);
 

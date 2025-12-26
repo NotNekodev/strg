@@ -4,12 +4,24 @@
 #include <lua.h>
 #include <strg/util/dynarray.h>
 #include <strg/strg.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include <xkbcommon/xkbcommon.h>
 
 struct strg_keybind {
     char key_combination[128]; // might be inefficent, when strdup exists, but hell do i look like i care? i mean this is way better than do some bs and freeing stuff becauser i use strdup
                                // even if, this is enough space, for your extra specific keybind to open that one exact hentai
                                // if you want to change this open a pr, because i wont
     int lua_callback_ref;
+
+	struct {
+		xkb_keysym_t mods[8];
+		xkb_keysym_t keys[128];
+
+		bool needs_mod;
+
+		size_t mod_count, key_count;
+	} keycode;
 };
 
 struct strg_config {

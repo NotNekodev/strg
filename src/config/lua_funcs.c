@@ -8,6 +8,8 @@
 #include <string.h>
 #include <unistd.h>
 
+#include <strg/util/keyutil.h>
+
 int strg_lua_funcs_register(lua_State *L, struct strg_config *config) {
     lua_pushlightuserdata(L, config);
     lua_pushcclosure(L, strg_set_keybind, 1);
@@ -116,9 +118,42 @@ int strg_set_keybind(lua_State *L) {
     strncpy(keybind->key_combination, key, sizeof(keybind->key_combination) - 1);
     keybind->lua_callback_ref = ref;
 
+	xkb_keysym_t *modifiers = parse_modifiers(keybind->key_combination, &keybind->keycode.mod_count);
+	xkb_keysym_t *keys = parse_keys(keybind->key_combination, &keybind->keycode.key_count);
+
+	keybind->keycode.needs_mod = strg_is_mod_needed(keybind->key_combination);
+
+	if (keys) {
+		memcpy(&keybind->keycode.keys, keys, sizeof(keybind->keycode.keys));
+	}
+
+	if (modifiers) {
+		memcpy(&keybind->keycode.mods, modifiers, sizeof(keybind->keycode.mods));
+	}
+
+	wlr_log(WLR_INFO, "New Keybind:");
+	wlr_log(WLR_INFO, "    Keys:");
+	for (size_t i = 0; i < keybind->keycode.key_count; i++) {
+		char name[64];
+ 		xkb_keysym_get_name(keybind->keycode.keys[i], name, sizeof(name));
+		wlr_log(WLR_INFO, "    - XKB_KEY_%s", name);
+	}
+	wlr_log(WLR_INFO, "    Modifiers:");
+	if (keybind->keycode.mod_count == 0) {
+		wlr_log(WLR_INFO, "    NONE");
+	} else {
+		for (size_t i = 0; i < keybind->keycode.mod_count; i++) {
+			char name[64];
+ 			xkb_keysym_get_name(keybind->keycode.mods[i], name, sizeof(name));
+			wlr_log(WLR_INFO, "    - XKB_KEY_%s", name);
+		}
+	}
+	wlr_log(WLR_INFO, "    Uses `Mod`: %s", keybind->keycode.needs_mod ? "yes" : "no");
+
     dynarray_add(config->keybinds, keybind);
 
-	wlr_log(WLR_INFO, "Bound key combination %s to lua reference %d", key, ref);
+	free(modifiers);
+	free(keys);
 
     return 0;
 }
