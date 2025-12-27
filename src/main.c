@@ -82,16 +82,13 @@ void signal_handler(int signum, siginfo_t *info, void *ucontext) {
 }
 
 int main(int argc, char *argv[]) {
-	char *kb_layout = "us"; // default
 	char *logfile = "strg.log";
 	char *config_file = "~/.config/strg/config.lua";
 	// todo: actually implement a config option for all this
 
 	int c;
-	while ((c = getopt(argc, argv, "k:l:c:")) != -1) {
-		if (c == 'k') {
-			kb_layout = optarg;
-		} else if (c == 'l') {
+	while ((c = getopt(argc, argv, "l:c:")) != -1) {
+		if (c == 'l') {
 			logfile = optarg;
 		} else if (c == 'c') {
 			config_file = optarg;
@@ -124,8 +121,6 @@ int main(int argc, char *argv[]) {
 	}
 
 	server.config = conf;
-
-	server.kb_layout = kb_layout;
 
 	server.backend = wlr_backend_autocreate(wl_display_get_event_loop(server.wl_display), NULL);
 	if (server.backend == NULL) {
@@ -162,7 +157,6 @@ int main(int argc, char *argv[]) {
 		&server.new_xdg_decoration
 	);
 
-	// todo: see which DISPLAY is free and use that
 	setenv("DISPLAY", ":2", true);
 
 	struct strg_xwayland *xwl = malloc(sizeof(struct strg_xwayland));

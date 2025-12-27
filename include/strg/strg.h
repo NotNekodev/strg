@@ -73,8 +73,6 @@ struct strg_server {
     struct wlr_xdg_decoration_manager_v1 *xdg_decoration_manager;
     struct wl_listener new_xdg_decoration;
 
-    char *kb_layout;
-
     int logfile_fd;
     struct timespec start; // time when the compositor started
 

@@ -147,115 +147,38 @@ void keyboard_handle_modifiers(struct wl_listener *listener, void *data) {
 		&keyboard->wlr_keyboard->modifiers);
 }
 
-/*bool handle_keybinding(struct strg_server *server, xkb_keysym_t sym) {
-	switch (sym) {
-	case XKB_KEY_Escape:
-		wl_display_terminate(server->wl_display);
-		break;
-	case XKB_KEY_F1:
-		if (wl_list_length(&server->toplevels) < 2) {
-			break;
-		}
-		struct strg_toplevel *next_toplevel = wl_container_of(server->toplevels.prev, next_toplevel, link);
-		focus_window(&(struct strg_window){
-			.type = STRG_WINDOW_XDG,
-			.window = next_toplevel
-		});
-		break;
-	case XKB_KEY_F2: {
-		const char *terminals[] = {
-			"x-terminal-emulator",
-			"gnome-terminal",
-			"konsole",
-			"xfce4-terminal",
-			"alacritty",
-			"kitty",
-			"wezterm",
-			"foot",
-			"st",
-			"xterm",
-			"weston-terminal",
-			NULL
-		};
-
-		bool next_term = true;
-		int index = 0;
-
-		while (next_term) {
-			next_term = false;
-			index++;
-			pid_t pid = fork();
-
-			if (pid < 0) {
-				perror("fork");
-				next_term = true;
-				break;
-			}
-
-			if (pid == 0) {
-				if (!terminals[index]) {
-					next_term = true;
-					continue;
-				}
-
-				setsid();
-
-				execlp(terminals[index], (char *)terminals[index], NULL );
-
-				next_term = true;
-				perror("execlp");
-				_exit(1);
-			}
-		}
-		break;
-	}
-
-	default:
-		return false;
-	}
-	return true;
-}*/
-
 void keyboard_handle_key(struct wl_listener *listener, void *data) {
 	struct strg_keyboard *keyboard = wl_container_of(listener, keyboard, key);
 	struct strg_server *server = keyboard->server;
 	struct wlr_keyboard_key_event *event = data;
 	struct wlr_seat *seat = server->seat;
 
-	// Get the keysym for this keycode
 	uint32_t keycode = event->keycode + 8;
 	const xkb_keysym_t *syms;
 	int nsyms = xkb_state_key_get_syms(
 			keyboard->wlr_keyboard->xkb_state, keycode, &syms);
 
-	// Get current modifier state
 	uint32_t modifiers = wlr_keyboard_get_modifiers(keyboard->wlr_keyboard);
 	
 	bool handled = false;
 	
-	// Only process keybinds on key press, not release
 	if (event->state == WL_KEYBOARD_KEY_STATE_PRESSED) {
-		// Iterate through all registered keybinds
 		DYNARRAY_FOREACH(server->config->keybinds, i, bind) {
 			struct strg_keybind *kb = bind;
 			
-			// Skip if no keys are defined (shouldn't happen, but safety check)
 			if (kb->keycode.key_count == 0) {
 				continue;
 			}
-			
-			// First check: Do we have the right number of keys?
+		
 			if (kb->keycode.key_count != (size_t)nsyms) {
 				continue;
 			}
 			
-			// Second check: Do the modifiers match?
 			if (!modifiers_match(modifiers, kb->keycode.mods, 
 			                     kb->keycode.mod_count, kb->keycode.needs_mod)) {
 				continue;
 			}
 			
-			// Third check: Do all the keys match (unordered)?
 			bool all_keys_match = keysym_array_equal_unordered(
 				kb->keycode.keys, 
 				(xkb_keysym_t *)syms, 
@@ -266,15 +189,12 @@ void keyboard_handle_key(struct wl_listener *listener, void *data) {
 				continue;
 			}
 			
-			// We found a matching keybind! Execute the Lua callback
 			handled = true;
 			
 			lua_State *L = server->config->L;
 			
-			// Retrieve the function from the registry
 			lua_rawgeti(L, LUA_REGISTRYINDEX, kb->lua_callback_ref);
 			
-			// Verify it's actually a function
 			if (!lua_isfunction(L, -1)) {
 				wlr_log(WLR_ERROR, "Keybind callback is not a function for: %s", 
 				       kb->key_combination);
@@ -282,7 +202,6 @@ void keyboard_handle_key(struct wl_listener *listener, void *data) {
 				continue;
 			}
 			
-			// Call the function with error handling
 			int result = lua_pcall(L, 0, 0, 0);
 			
 			if (result != LUA_OK) {
@@ -292,12 +211,10 @@ void keyboard_handle_key(struct wl_listener *listener, void *data) {
 				lua_pop(L, 1);
 			}
 			
-			// Only execute the first matching keybind
 			break;
 		}
 	}
 
-	// If no keybind handled the key, pass it through to the focused client
 	if (!handled) {
 		wlr_seat_set_keyboard(seat, keyboard->wlr_keyboard);
 		wlr_seat_keyboard_notify_key(seat, event->time_msec,
@@ -315,7 +232,7 @@ void keyboard_handle_destroy(struct wl_listener *listener, void *data) {
 	free(keyboard);
 }
 
-void server_new_keyboard(struct strg_server *server, struct wlr_input_device *device, const char* keyboard_layout) {
+void server_new_keyboard(struct strg_server *server, struct wlr_input_device *device) {
 	struct wlr_keyboard *wlr_keyboard = wlr_keyboard_from_input_device(device);
 
 	struct strg_keyboard *keyboard = calloc(1, sizeof(*keyboard));
@@ -370,7 +287,7 @@ void server_new_input(struct wl_listener *listener, void *data) {
 	struct wlr_input_device *device = data;
 	switch (device->type) {
 		case WLR_INPUT_DEVICE_KEYBOARD:
-		server_new_keyboard(server, device, server->kb_layout);
+		server_new_keyboard(server, device);
 		break;
 	case WLR_INPUT_DEVICE_POINTER:
 		server_new_pointer(server, device);
