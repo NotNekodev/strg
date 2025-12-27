@@ -1,3 +1,3 @@
-bind_key("Mod+F1", function() print("mod + f1 pressed") end)
+bind_key("Alt+F9", function() spawn("kitty") end)
 
 opt.keyboard.layout = "de"

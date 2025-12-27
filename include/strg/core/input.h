@@ -15,7 +15,7 @@ struct strg_keyboard {
 
 void focus_window(struct strg_window *toplevel);
 void keyboard_handle_modifiers(struct wl_listener *listener, void *data);
-bool handle_keybinding(struct strg_server *server, xkb_keysym_t sym);
+// bool handle_keybinding(struct strg_server *server, xkb_keysym_t sym);
 void keyboard_handle_key(struct wl_listener *listener, void *data);
 void keyboard_handle_destroy(struct wl_listener *listener, void *data);
 void server_new_keyboard(struct strg_server *server, struct wlr_input_device *device, const char* keyboard_layout);

@@ -21,6 +21,8 @@
 
 #include <strg/config/config.h>
 
+#include <strg/util/keyutil.h>
+
 uint32_t calculate_resize_edges(struct strg_window *window, double cursor_x, double cursor_y) {
 	uint32_t edges = 0;
 
@@ -145,7 +147,7 @@ void keyboard_handle_modifiers(struct wl_listener *listener, void *data) {
 		&keyboard->wlr_keyboard->modifiers);
 }
 
-bool handle_keybinding(struct strg_server *server, xkb_keysym_t sym) {
+/*bool handle_keybinding(struct strg_server *server, xkb_keysym_t sym) {
 	switch (sym) {
 	case XKB_KEY_Escape:
 		wl_display_terminate(server->wl_display);
@@ -212,30 +214,90 @@ bool handle_keybinding(struct strg_server *server, xkb_keysym_t sym) {
 		return false;
 	}
 	return true;
-}
+}*/
 
 void keyboard_handle_key(struct wl_listener *listener, void *data) {
-	/* This event is raised when a key is pressed or released. */
-	struct strg_keyboard *keyboard =
-		wl_container_of(listener, keyboard, key);
+	struct strg_keyboard *keyboard = wl_container_of(listener, keyboard, key);
 	struct strg_server *server = keyboard->server;
 	struct wlr_keyboard_key_event *event = data;
 	struct wlr_seat *seat = server->seat;
 
+	// Get the keysym for this keycode
 	uint32_t keycode = event->keycode + 8;
 	const xkb_keysym_t *syms;
 	int nsyms = xkb_state_key_get_syms(
 			keyboard->wlr_keyboard->xkb_state, keycode, &syms);
 
-	bool handled = false;
+	// Get current modifier state
 	uint32_t modifiers = wlr_keyboard_get_modifiers(keyboard->wlr_keyboard);
-	if ((modifiers & WLR_MODIFIER_ALT) &&
-			event->state == WL_KEYBOARD_KEY_STATE_PRESSED) {
-		for (int i = 0; i < nsyms; i++) {
-			handled = handle_keybinding(server, syms[i]);
+	
+	bool handled = false;
+	
+	// Only process keybinds on key press, not release
+	if (event->state == WL_KEYBOARD_KEY_STATE_PRESSED) {
+		// Iterate through all registered keybinds
+		DYNARRAY_FOREACH(server->config->keybinds, i, bind) {
+			struct strg_keybind *kb = bind;
+			
+			// Skip if no keys are defined (shouldn't happen, but safety check)
+			if (kb->keycode.key_count == 0) {
+				continue;
+			}
+			
+			// First check: Do we have the right number of keys?
+			if (kb->keycode.key_count != (size_t)nsyms) {
+				continue;
+			}
+			
+			// Second check: Do the modifiers match?
+			if (!modifiers_match(modifiers, kb->keycode.mods, 
+			                     kb->keycode.mod_count, kb->keycode.needs_mod)) {
+				continue;
+			}
+			
+			// Third check: Do all the keys match (unordered)?
+			bool all_keys_match = keysym_array_equal_unordered(
+				kb->keycode.keys, 
+				(xkb_keysym_t *)syms, 
+				kb->keycode.key_count
+			);
+			
+			if (!all_keys_match) {
+				continue;
+			}
+			
+			// We found a matching keybind! Execute the Lua callback
+			handled = true;
+			
+			lua_State *L = server->config->L;
+			
+			// Retrieve the function from the registry
+			lua_rawgeti(L, LUA_REGISTRYINDEX, kb->lua_callback_ref);
+			
+			// Verify it's actually a function
+			if (!lua_isfunction(L, -1)) {
+				wlr_log(WLR_ERROR, "Keybind callback is not a function for: %s", 
+				       kb->key_combination);
+				lua_pop(L, 1);
+				continue;
+			}
+			
+			// Call the function with error handling
+			int result = lua_pcall(L, 0, 0, 0);
+			
+			if (result != LUA_OK) {
+				const char *error_msg = lua_tostring(L, -1);
+				wlr_log(WLR_ERROR, "Error executing keybind '%s': %s", 
+				       kb->key_combination, error_msg ? error_msg : "unknown error");
+				lua_pop(L, 1);
+			}
+			
+			// Only execute the first matching keybind
+			break;
 		}
 	}
 
+	// If no keybind handled the key, pass it through to the focused client
 	if (!handled) {
 		wlr_seat_set_keyboard(seat, keyboard->wlr_keyboard);
 		wlr_seat_keyboard_notify_key(seat, event->time_msec,
