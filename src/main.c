@@ -123,6 +123,8 @@ int main(int argc, char *argv[]) {
 		return 1;
 	}
 
+	server.config = conf;
+
 	server.kb_layout = kb_layout;
 
 	server.backend = wlr_backend_autocreate(wl_display_get_event_loop(server.wl_display), NULL);

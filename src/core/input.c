@@ -18,6 +18,8 @@
 #include "strg/core/protocol/xwayland/xwl_ops.h"
 #include <strg/util/mutil.h>
 
+#include <strg/config/config.h>
+
 uint32_t calculate_resize_edges(struct strg_window *window, double cursor_x, double cursor_y) {
 	uint32_t edges = 0;
 
@@ -260,11 +262,11 @@ void server_new_keyboard(struct strg_server *server, struct wlr_input_device *de
 	struct xkb_context *context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
 	struct xkb_keymap *keymap = xkb_keymap_new_from_names(context,
 		&(struct xkb_rule_names){
-			.rules = "evdev",
-			.model = "pc105",
-			.layout = keyboard_layout,
-			.variant = NULL,
-			.options = "grp:alt_shift_toggle"
+			.rules = server->config->kb_conf.rule,
+			.model = server->config->kb_conf.model,
+			.layout = server->config->kb_conf.layout,
+			.variant = strlen(server->config->kb_conf.model) == 0 ? NULL : server->config->kb_conf.model,
+			.options = server->config->kb_conf.options
 		},
 		XKB_KEYMAP_COMPILE_NO_FLAGS);
 
