@@ -71,7 +71,7 @@ void strg_log_timestamped_fd(const char *level, const char *msg) {
 }
 
 int strg_init_logging(const char *logfile) {
-    server.logfile_fd = open(logfile, O_CREAT | O_WRONLY | O_APPEND, 0644);
+    server.logfile_fd = open(logfile, O_CREAT | O_WRONLY | O_TRUNC, 0644);
     if (server.logfile_fd == -1) {
         perror("Failed to open log file");
         return 1;
