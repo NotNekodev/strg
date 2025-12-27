@@ -1,4 +1,5 @@
 #include <limits.h>
+#include <signal.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdio.h>
@@ -265,10 +266,20 @@ void server_new_keyboard(struct strg_server *server, struct wlr_input_device *de
 			.rules = server->config->kb_conf.rule,
 			.model = server->config->kb_conf.model,
 			.layout = server->config->kb_conf.layout,
-			.variant = strlen(server->config->kb_conf.model) == 0 ? NULL : server->config->kb_conf.model,
+			.variant = strlen(server->config->kb_conf.variant) == 0 ? NULL : server->config->kb_conf.variant,
 			.options = server->config->kb_conf.options
 		},
 		XKB_KEYMAP_COMPILE_NO_FLAGS);
+
+	if (!keymap) {
+		wlr_log(WLR_ERROR, "Failed to compile keymap");
+		wlr_log(WLR_ERROR, "  Rule: %s", server->config->kb_conf.rule);
+		wlr_log(WLR_ERROR, "  Model: %s", server->config->kb_conf.model);
+		wlr_log(WLR_ERROR, "  Layout: %s", server->config->kb_conf.layout);
+		wlr_log(WLR_ERROR, "  Variant: %s", strlen(server->config->kb_conf.variant) == 0 ? NULL : server->config->kb_conf.variant);
+		wlr_log(WLR_ERROR, "  Options: %s", server->config->kb_conf.options);
+		kill(getpid(), SIGTERM);
+	}
 
 	wlr_keyboard_set_keymap(wlr_keyboard, keymap);
 	xkb_keymap_unref(keymap);

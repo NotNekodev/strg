@@ -14,7 +14,7 @@ struct strg_config *strg_config_load(const char *filepath, struct strg_server *s
 	strcpy(config->kb_conf.rule, "evdev");
 	strcpy(config->kb_conf.model, "pc105");
 	strcpy(config->kb_conf.variant, "\0");
-	strcpy(config->kb_conf.options, "grp:");
+	strcpy(config->kb_conf.options, "grp:alt_shift_toggle");
 
     lua_State *L = luaL_newstate();
     luaL_openlibs(L);
