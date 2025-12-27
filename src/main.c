@@ -84,7 +84,6 @@ void signal_handler(int signum, siginfo_t *info, void *ucontext) {
 int main(int argc, char *argv[]) {
 	char *logfile = "strg.log";
 	char *config_file = "~/.config/strg/config.lua";
-	// todo: actually implement a config option for all this
 
 	int c;
 	while ((c = getopt(argc, argv, "l:c:")) != -1) {
