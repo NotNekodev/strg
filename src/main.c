@@ -92,17 +92,17 @@ int main(int argc, char *argv[]) {
 		} else if (c == 'c') {
 			config_file = optarg;
 		} else {
-			printf("Usage: %s [-k keyboard layout] [-l log file] [-c config file]\n", argv[0]);
+			printf("Usage: %s [-l log file] [-c config file]\n", argv[0]);
 		}
 	}
 	if (optind < argc) {
-		printf("Usage: %s [-k keyboard layout] [-l log file] [-c config file]\n", argv[0]);
+		printf("Usage: %s [-l log file] [-c config file]\n", argv[0]);
 		return 0;
 	}
 
 	clock_gettime(CLOCK_MONOTONIC, &server.start);
 
-	strg_init_logging(logfile);	
+	strg_init_logging(logfile);
 
 	struct sigaction sa = {0};
 	sa.sa_sigaction = signal_handler;
@@ -112,7 +112,7 @@ int main(int argc, char *argv[]) {
 	sigaction(SIGINT, &sa, NULL);
 
 	server.wl_display = wl_display_create();
-	
+
 	struct strg_config *conf = strg_config_load(config_file, &server);
 	if (!conf) {
 		wlr_log(WLR_ERROR, "failed to load config file");
@@ -128,7 +128,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	server.event_loop = wl_display_get_event_loop(server.wl_display);
-	strg_init_stderr_ev_loop_wl(server.event_loop);	
+	strg_init_stderr_ev_loop_wl(server.event_loop);
 
 	server.renderer = wlr_renderer_autocreate(server.backend);
 	if (server.renderer == NULL) {
@@ -232,7 +232,7 @@ int main(int argc, char *argv[]) {
 	setenv("WAYLAND_DISPLAY", socket, true);
 
 	wlr_log(WLR_INFO, "Running Wayland compositor on WAYLAND_DISPLAY=%s",
-			socket);	
+			socket);
 
 	wl_display_run(server.wl_display);
 
